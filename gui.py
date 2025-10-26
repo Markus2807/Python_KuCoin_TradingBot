@@ -16,11 +16,6 @@ class TradingBotGUI:
         self.root.geometry("780x460")  # Perfekt für 800×480
         self.root.configure(bg='#2c3e50')
         
-        # Raspberry Pi optimierte Schriftgrößen
-        self.small_font = ('Arial', 8)
-        self.medium_font = ('Arial', 9)
-        self.large_font = ('Arial', 10, 'bold')
-        
         # Aktivitätslog
         self.bot_activity_log = []
         self.activity_log = None
@@ -33,7 +28,7 @@ class TradingBotGUI:
         
     def setup_optimized_gui(self):
         """Optimierte GUI für Raspberry Pi 800×480"""
-        # Haupt-Frame mit Scrollbar für kleine Displays
+        # Haupt-Frame
         main_frame = ttk.Frame(self.root)
         main_frame.pack(fill=tk.BOTH, expand=True, padx=2, pady=2)
         
@@ -55,7 +50,7 @@ class TradingBotGUI:
         self.setup_config_tab_optimized(config_tab)
         
         # Status Bar unten
-        status_bar = ttk.Label(self.root, textvariable=self.status_var, relief=tk.SUNKEN, font=self.small_font)
+        status_bar = ttk.Label(self.root, textvariable=self.status_var, relief=tk.SUNKEN)
         status_bar.pack(side=tk.BOTTOM, fill=tk.X)
         
     def setup_trading_tab_optimized(self, parent):
@@ -65,24 +60,23 @@ class TradingBotGUI:
         top_frame.pack(fill=tk.X, pady=2)
         
         # Balance Frame
-        balance_frame = ttk.LabelFrame(top_frame, text="Kontostand", padding=3)
+        balance_frame = ttk.LabelFrame(top_frame, text="Kontostand")
         balance_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=2)
         
         self.balance_info_var = tk.StringVar(value="Lade Kontostand...")
-        ttk.Label(balance_frame, textvariable=self.balance_info_var, font=self.small_font).pack()
+        ttk.Label(balance_frame, textvariable=self.balance_info_var).pack()
         
         ttk.Button(balance_frame, text="Aktualisieren", 
                   command=self.update_balance_display, width=12).pack(pady=2)
         
         # Control Frame
-        control_frame = ttk.LabelFrame(top_frame, text="Steuerung", padding=3)
+        control_frame = ttk.LabelFrame(top_frame, text="Steuerung")
         control_frame.pack(side=tk.RIGHT, fill=tk.X, expand=True, padx=2)
         
         self.auto_trading_var = tk.BooleanVar(value=self.bot.auto_trading)
         ttk.Checkbutton(control_frame, text="Auto-Trading", 
                        variable=self.auto_trading_var,
-                       command=self.toggle_auto_trading,
-                       font=self.small_font).pack()
+                       command=self.toggle_auto_trading).pack()
         
         btn_frame = ttk.Frame(control_frame)
         btn_frame.pack(pady=2)
@@ -93,7 +87,7 @@ class TradingBotGUI:
                   command=self.start_backtest, width=8).pack(side=tk.LEFT, padx=1)
         
         # Mittlere Reihe: Empfehlungen
-        rec_frame = ttk.LabelFrame(parent, text="Trading Empfehlungen", padding=3)
+        rec_frame = ttk.LabelFrame(parent, text="Trading Empfehlungen")
         rec_frame.pack(fill=tk.BOTH, expand=True, pady=2)
         
         # Baum für Empfehlungen mit Scrollbar
@@ -120,7 +114,7 @@ class TradingBotGUI:
         tree_scroll.pack(side=tk.RIGHT, fill=tk.Y)
         
         # Untere Reihe: Aktive Trades
-        trades_frame = ttk.LabelFrame(parent, text="Aktive Trades", padding=3)
+        trades_frame = ttk.LabelFrame(parent, text="Aktive Trades")
         trades_frame.pack(fill=tk.X, pady=2)
         
         trades_columns = ('Symbol', 'Kaufpreis', 'Aktuell', 'P/L %')
@@ -151,7 +145,7 @@ class TradingBotGUI:
     def setup_status_tab_optimized(self, parent):
         """Optimierte Status-Tab"""
         # Linke Seite: Bot Status
-        left_frame = ttk.LabelFrame(parent, text="Bot Status", padding=5)
+        left_frame = ttk.LabelFrame(parent, text="Bot Status")
         left_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=2, pady=2)
         
         self.bot_status_vars = {}
@@ -170,9 +164,9 @@ class TradingBotGUI:
             row_frame = ttk.Frame(left_frame)
             row_frame.pack(fill=tk.X, pady=1)
             
-            ttk.Label(row_frame, text=f"{label}:", width=15, anchor=tk.W, font=self.small_font).pack(side=tk.LEFT)
+            ttk.Label(row_frame, text=f"{label}:", width=15, anchor=tk.W).pack(side=tk.LEFT)
             self.bot_status_vars[key] = tk.StringVar(value="-")
-            ttk.Label(row_frame, textvariable=self.bot_status_vars[key], font=self.small_font).pack(side=tk.LEFT)
+            ttk.Label(row_frame, textvariable=self.bot_status_vars[key]).pack(side=tk.LEFT)
         
         # Aktions-Buttons
         button_frame = ttk.Frame(left_frame)
@@ -184,15 +178,14 @@ class TradingBotGUI:
                   command=self.clear_activity_log).pack(pady=2)
         
         # Rechte Seite: Aktivitätslog
-        right_frame = ttk.LabelFrame(parent, text="Aktivitätslog", padding=5)
+        right_frame = ttk.LabelFrame(parent, text="Aktivitätslog")
         right_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=2, pady=2)
         
         self.activity_log = scrolledtext.ScrolledText(
             right_frame, 
             wrap=tk.WORD, 
             width=40, 
-            height=15,
-            font=('Arial', 7)  # Kleinere Schrift für Log
+            height=15
         )
         self.activity_log.pack(fill=tk.BOTH, expand=True)
         self.activity_log.config(state=tk.DISABLED)
@@ -203,25 +196,25 @@ class TradingBotGUI:
     def setup_config_tab_optimized(self, parent):
         """Optimierte Konfigurations-Tab"""
         # Trading-Pairs Auswahl
-        pairs_frame = ttk.LabelFrame(parent, text="Trading-Pairs", padding=5)
+        pairs_frame = ttk.LabelFrame(parent, text="Trading-Pairs")
         pairs_frame.pack(fill=tk.BOTH, expand=True, pady=2)
         
         # Verfügbare Pairs
         available_frame = ttk.Frame(pairs_frame)
         available_frame.pack(fill=tk.X, pady=2)
         
-        ttk.Label(available_frame, text="Verfügbare Pairs:", font=self.small_font).pack(side=tk.LEFT)
+        ttk.Label(available_frame, text="Verfügbare Pairs:").pack(side=tk.LEFT)
         ttk.Button(available_frame, text="Laden", 
                   command=self.load_available_pairs, width=8).pack(side=tk.RIGHT, padx=2)
         
-        self.available_listbox = tk.Listbox(pairs_frame, height=4, font=self.small_font)
+        self.available_listbox = tk.Listbox(pairs_frame, height=4)
         self.available_listbox.pack(fill=tk.X, pady=2)
         
         # Ausgewählte Pairs
         selected_frame = ttk.Frame(pairs_frame)
         selected_frame.pack(fill=tk.X, pady=2)
         
-        ttk.Label(selected_frame, text="Ausgewählte Pairs:", font=self.small_font).pack(side=tk.LEFT)
+        ttk.Label(selected_frame, text="Ausgewählte Pairs:").pack(side=tk.LEFT)
         
         btn_frame = ttk.Frame(selected_frame)
         btn_frame.pack(side=tk.RIGHT)
@@ -231,14 +224,14 @@ class TradingBotGUI:
         ttk.Button(btn_frame, text="Entfernen", 
                   command=self.remove_selected_pairs, width=8).pack(side=tk.LEFT, padx=1)
         
-        self.selected_listbox = tk.Listbox(pairs_frame, height=4, font=self.small_font)
+        self.selected_listbox = tk.Listbox(pairs_frame, height=4)
         self.selected_listbox.pack(fill=tk.X, pady=2)
         
         ttk.Button(pairs_frame, text="Pairs Speichern", 
                   command=self.save_trading_pairs).pack(pady=2)
         
         # Schnellauswahl für beliebte Pairs
-        quick_frame = ttk.LabelFrame(parent, text="Schnellauswahl", padding=5)
+        quick_frame = ttk.LabelFrame(parent, text="Schnellauswahl")
         quick_frame.pack(fill=tk.X, pady=2)
         
         popular_pairs = ['BTC-USDT', 'ETH-USDT', 'ADA-USDT', 'DOT-USDT', 'LINK-USDT']
@@ -252,32 +245,32 @@ class TradingBotGUI:
                           width=10).pack(side=tk.LEFT, padx=1)
         
         # Trading Einstellungen
-        settings_frame = ttk.LabelFrame(parent, text="Trading Einstellungen", padding=5)
+        settings_frame = ttk.LabelFrame(parent, text="Trading Einstellungen")
         settings_frame.pack(fill=tk.X, pady=2)
         
         # Erste Zeile
         row1 = ttk.Frame(settings_frame)
         row1.pack(fill=tk.X, pady=1)
         
-        ttk.Label(row1, text="Stop-Loss %:", width=12, font=self.small_font).pack(side=tk.LEFT)
+        ttk.Label(row1, text="Stop-Loss %:", width=12).pack(side=tk.LEFT)
         self.stop_loss_var = tk.StringVar(value=str(self.bot.stop_loss_percent))
-        ttk.Entry(row1, textvariable=self.stop_loss_var, width=8, font=self.small_font).pack(side=tk.LEFT)
+        ttk.Entry(row1, textvariable=self.stop_loss_var, width=8).pack(side=tk.LEFT)
         
-        ttk.Label(row1, text="Trade Größe %:", width=12, font=self.small_font).pack(side=tk.LEFT, padx=(10,0))
+        ttk.Label(row1, text="Trade Größe %:", width=12).pack(side=tk.LEFT, padx=(10,0))
         self.trade_size_var = tk.StringVar(value=str(self.bot.trade_size_percent))
-        ttk.Entry(row1, textvariable=self.trade_size_var, width=8, font=self.small_font).pack(side=tk.LEFT)
+        ttk.Entry(row1, textvariable=self.trade_size_var, width=8).pack(side=tk.LEFT)
         
         # Zweite Zeile
         row2 = ttk.Frame(settings_frame)
         row2.pack(fill=tk.X, pady=1)
         
-        ttk.Label(row2, text="RSI Oversold:", width=12, font=self.small_font).pack(side=tk.LEFT)
+        ttk.Label(row2, text="RSI Oversold:", width=12).pack(side=tk.LEFT)
         self.rsi_oversold_var = tk.StringVar(value=str(self.bot.rsi_oversold))
-        ttk.Entry(row2, textvariable=self.rsi_oversold_var, width=8, font=self.small_font).pack(side=tk.LEFT)
+        ttk.Entry(row2, textvariable=self.rsi_oversold_var, width=8).pack(side=tk.LEFT)
         
-        ttk.Label(row2, text="RSI Overbought:", width=12, font=self.small_font).pack(side=tk.LEFT, padx=(10,0))
+        ttk.Label(row2, text="RSI Overbought:", width=12).pack(side=tk.LEFT, padx=(10,0))
         self.rsi_overbought_var = tk.StringVar(value=str(self.bot.rsi_overbought))
-        ttk.Entry(row2, textvariable=self.rsi_overbought_var, width=8, font=self.small_font).pack(side=tk.LEFT)
+        ttk.Entry(row2, textvariable=self.rsi_overbought_var, width=8).pack(side=tk.LEFT)
         
         ttk.Button(settings_frame, text="Einstellungen Speichern", 
                   command=self.save_settings).pack(pady=5)
