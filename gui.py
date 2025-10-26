@@ -19,7 +19,7 @@ class TradingBotGUI:
         # Raspberry Pi optimierte Einstellungen
         if platform.system() == "Linux" and 'raspberrypi' in platform.uname().release.lower():
             self.root.geometry("1200x700")  # Kleinere Auflösung für Pi
-            print("🔧 Raspberry Pi optimierte GUI-Einstellungen aktiviert")
+            print("Raspberry Pi optimierte GUI-Einstellungen aktiviert")
         else:
             self.root.geometry("1400x900")  # Normale Größe für PC
             
@@ -49,10 +49,10 @@ class TradingBotGUI:
         
         # Weniger Tabs für bessere Performance
         trading_tab = ttk.Frame(notebook)
-        notebook.add(trading_tab, text="📊 Trading")
+        notebook.add(trading_tab, text="Trading")
         
         monitoring_tab = ttk.Frame(notebook)
-        notebook.add(monitoring_tab, text="🔍 Monitoring")
+        notebook.add(monitoring_tab, text="Monitoring")
         
         self.setup_trading_tab_simple(trading_tab)
         self.setup_monitoring_tab_simple(monitoring_tab)
@@ -66,16 +66,16 @@ class TradingBotGUI:
         notebook.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         
         trading_tab = ttk.Frame(notebook)
-        notebook.add(trading_tab, text="📊 Trading")
+        notebook.add(trading_tab, text="Trading")
         
         config_tab = ttk.Frame(notebook)
-        notebook.add(config_tab, text="⚙️ Konfiguration")
+        notebook.add(config_tab, text="Konfiguration")
         
         tax_tab = ttk.Frame(notebook)
-        notebook.add(tax_tab, text="💰 Finanzamt")
+        notebook.add(tax_tab, text="Finanzamt")
         
         monitoring_tab = ttk.Frame(notebook)
-        notebook.add(monitoring_tab, text="🔍 Bot Monitoring")
+        notebook.add(monitoring_tab, text="Bot Monitoring")
         
         self.setup_trading_tab(trading_tab)
         self.setup_config_tab(config_tab)
@@ -88,10 +88,10 @@ class TradingBotGUI:
     def setup_trading_tab_simple(self, parent):
         """Vereinfachte Trading-Tab für Raspberry Pi"""
         # Balance Panel
-        balance_frame = ttk.LabelFrame(parent, text="💰 Kontostand", padding=5)
+        balance_frame = ttk.LabelFrame(parent, text="Kontostand", padding=5)
         balance_frame.pack(fill=tk.X, pady=2)
         
-        ttk.Button(balance_frame, text="🔄 Aktualisieren", 
+        ttk.Button(balance_frame, text="Aktualisieren", 
                   command=self.update_balance_display).pack(side=tk.LEFT)
         
         self.balance_info_var = tk.StringVar(value="Lade Kontostand...")
@@ -99,7 +99,7 @@ class TradingBotGUI:
                  font=('Arial', 9, 'bold')).pack(side=tk.LEFT, padx=10)
         
         # Control Panel
-        control_frame = ttk.LabelFrame(parent, text="🤖 Steuerung", padding=5)
+        control_frame = ttk.LabelFrame(parent, text="Steuerung", padding=5)
         control_frame.pack(fill=tk.X, pady=2)
         
         self.auto_trading_var = tk.BooleanVar(value=self.bot.auto_trading)
@@ -107,15 +107,15 @@ class TradingBotGUI:
                        variable=self.auto_trading_var,
                        command=self.toggle_auto_trading).pack(side=tk.LEFT)
         
-        ttk.Button(control_frame, text="⚡ Schnell-Check", 
+        ttk.Button(control_frame, text="Schnell-Check", 
                   command=self.quick_signal_check).pack(side=tk.LEFT, padx=5)
-        ttk.Button(control_frame, text="📊 Backtest", 
+        ttk.Button(control_frame, text="Backtest", 
                   command=self.start_backtest).pack(side=tk.LEFT, padx=5)
-        ttk.Button(control_frame, text="🔒 Alle Schließen", 
+        ttk.Button(control_frame, text="Alle Schliessen", 
                   command=self.close_all_trades).pack(side=tk.LEFT, padx=5)
         
         # Empfehlungen
-        rec_frame = ttk.LabelFrame(parent, text="📊 Empfehlungen", padding=5)
+        rec_frame = ttk.LabelFrame(parent, text="Empfehlungen", padding=5)
         rec_frame.pack(fill=tk.BOTH, expand=True, pady=2)
         
         columns = ('Symbol', 'Preis', 'Signal', 'Confidence')
@@ -136,7 +136,7 @@ class TradingBotGUI:
         main_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
         
         # Status Informationen
-        status_frame = ttk.LabelFrame(main_frame, text="🤖 Bot Status", padding=10)
+        status_frame = ttk.LabelFrame(main_frame, text="Bot Status", padding=10)
         status_frame.pack(fill=tk.BOTH, expand=True, pady=5)
         
         self.bot_status_vars = {}
@@ -155,7 +155,7 @@ class TradingBotGUI:
             ttk.Label(status_frame, textvariable=self.bot_status_vars[key]).grid(row=i, column=1, sticky=tk.W, pady=2, padx=(10, 0))
         
         # Aktivitätslog
-        log_frame = ttk.LabelFrame(main_frame, text="📋 Aktivitätslog", padding=10)
+        log_frame = ttk.LabelFrame(main_frame, text="Aktivitätslog", padding=10)
         log_frame.pack(fill=tk.BOTH, expand=True, pady=5)
         
         self.activity_log = scrolledtext.ScrolledText(
@@ -163,7 +163,7 @@ class TradingBotGUI:
             wrap=tk.WORD, 
             width=60, 
             height=15,
-            font=('Arial', 8)  # Kleinere Schrift für Pi
+            font=('Arial', 8)
         )
         self.activity_log.pack(fill=tk.BOTH, expand=True)
         self.activity_log.config(state=tk.DISABLED)
@@ -172,11 +172,11 @@ class TradingBotGUI:
         button_frame = ttk.Frame(main_frame)
         button_frame.pack(fill=tk.X, pady=5)
         
-        ttk.Button(button_frame, text="🔄 Sofort Analyse", 
+        ttk.Button(button_frame, text="Sofort Analyse", 
                   command=self.quick_signal_check).pack(side=tk.LEFT, padx=2)
-        ttk.Button(button_frame, text="📊 Cache Aktualisieren", 
+        ttk.Button(button_frame, text="Cache Aktualisieren", 
                   command=self.force_cache_update).pack(side=tk.LEFT, padx=2)
-        ttk.Button(button_frame, text="🧹 Log Leeren", 
+        ttk.Button(button_frame, text="Log Leeren", 
                   command=self.clear_activity_log).pack(side=tk.LEFT, padx=2)
         
         # Initiale Aktualisierung
@@ -197,14 +197,14 @@ class TradingBotGUI:
         
     def setup_balance_panel(self, parent):
         """Erstellt das Panel für Kontostand-Informationen"""
-        balance_frame = ttk.LabelFrame(parent, text="💰 Kontostand & Bestände", padding=10)
+        balance_frame = ttk.LabelFrame(parent, text="Kontostand & Bestände", padding=10)
         balance_frame.pack(fill=tk.X, pady=5)
         
         # Refresh Button
         refresh_frame = ttk.Frame(balance_frame)
         refresh_frame.pack(fill=tk.X, pady=5)
         
-        ttk.Button(refresh_frame, text="🔄 Aktualisieren", 
+        ttk.Button(refresh_frame, text="Aktualisieren", 
                   command=self.update_balance_display).pack(side=tk.LEFT)
         
         # Balance Informationen
@@ -234,7 +234,7 @@ class TradingBotGUI:
         self.update_balance_display()
         
     def setup_control_panel(self, parent):
-        control_frame = ttk.LabelFrame(parent, text="🤖 Bot Steuerung", padding=10)
+        control_frame = ttk.LabelFrame(parent, text="Bot Steuerung", padding=10)
         control_frame.pack(fill=tk.X, pady=5)
         
         self.auto_trading_var = tk.BooleanVar(value=self.bot.auto_trading)
@@ -275,15 +275,15 @@ class TradingBotGUI:
         
         ttk.Button(button_frame, text="Einstellungen Speichern", 
                   command=self.save_settings).pack(side=tk.LEFT, padx=2)
-        ttk.Button(button_frame, text="⚡ Schnell-Check", 
+        ttk.Button(button_frame, text="Schnell-Check", 
                   command=self.quick_signal_check).pack(side=tk.LEFT, padx=2)
         ttk.Button(button_frame, text="Backtest Starten", 
                   command=self.start_backtest).pack(side=tk.LEFT, padx=2)
-        ttk.Button(button_frame, text="Alle Trades Schließen", 
+        ttk.Button(button_frame, text="Alle Trades Schliessen", 
                   command=self.close_all_trades).pack(side=tk.LEFT, padx=2)
         
     def setup_recommendations_panel(self, parent):
-        rec_frame = ttk.LabelFrame(parent, text="📊 Trading Empfehlungen", padding=10)
+        rec_frame = ttk.LabelFrame(parent, text="Trading Empfehlungen", padding=10)
         rec_frame.pack(fill=tk.BOTH, expand=True, pady=5)
         
         columns = ('Symbol', 'Preis', 'Signal', 'Confidence', 'Performance', 'Signale')
@@ -297,7 +297,7 @@ class TradingBotGUI:
         self.rec_tree.pack(fill=tk.BOTH, expand=True)
         
     def setup_active_trades_panel(self, parent):
-        trades_frame = ttk.LabelFrame(parent, text="💼 Aktive Trades", padding=10)
+        trades_frame = ttk.LabelFrame(parent, text="Aktive Trades", padding=10)
         trades_frame.pack(fill=tk.BOTH, expand=True, pady=5)
         
         columns = ('Symbol', 'Kaufpreis', 'Aktuell', 'Menge', 'P/L %', 'P/L €', 'Seit')
@@ -312,11 +312,11 @@ class TradingBotGUI:
         action_frame = ttk.Frame(trades_frame)
         action_frame.pack(fill=tk.X, pady=5)
         
-        ttk.Button(action_frame, text="Trade Schließen", 
+        ttk.Button(action_frame, text="Trade Schliessen", 
                   command=self.close_selected_trade).pack(side=tk.LEFT, padx=2)
         
     def setup_trade_history_panel(self, parent):
-        history_frame = ttk.LabelFrame(parent, text="📈 Trade History", padding=10)
+        history_frame = ttk.LabelFrame(parent, text="Trade History", padding=10)
         history_frame.pack(fill=tk.BOTH, expand=True, pady=5)
         
         columns = ('Datum', 'Symbol', 'Side', 'Preis', 'Menge', 'P/L %', 'P/L €', 'Grund')
@@ -336,11 +336,11 @@ class TradingBotGUI:
         main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         
         # Linke Seite - Verfügbare Pairs
-        left_frame = ttk.LabelFrame(main_frame, text="📈 Verfügbare Trading-Pairs", padding=10)
+        left_frame = ttk.LabelFrame(main_frame, text="Verfügbare Trading-Pairs", padding=10)
         left_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 5))
         
         # Rechte Seite - Ausgewählte Pairs
-        right_frame = ttk.LabelFrame(main_frame, text="🎯 Ausgewählte Trading-Pairs", padding=10)
+        right_frame = ttk.LabelFrame(main_frame, text="Ausgewählte Trading-Pairs", padding=10)
         right_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=(5, 0))
         
         # Verfügbare Pairs
@@ -357,7 +357,7 @@ class TradingBotGUI:
         search_entry.pack(side=tk.LEFT, padx=5)
         search_entry.bind('<KeyRelease>', self.filter_available_pairs)
         
-        ttk.Button(search_frame, text="🔄 Alle laden", 
+        ttk.Button(search_frame, text="Alle laden", 
                   command=self.load_available_pairs).pack(side=tk.RIGHT, padx=5)
         
         # Liste verfügbarer Pairs
@@ -374,9 +374,9 @@ class TradingBotGUI:
         available_buttons = ttk.Frame(available_frame)
         available_buttons.pack(fill=tk.X, pady=5)
         
-        ttk.Button(available_buttons, text="➕ Auswählen", 
+        ttk.Button(available_buttons, text="Auswählen", 
                   command=self.add_selected_pairs).pack(side=tk.LEFT, padx=2)
-        ttk.Button(available_buttons, text="➕ Alle auswählen", 
+        ttk.Button(available_buttons, text="Alle auswählen", 
                   command=self.add_all_pairs).pack(side=tk.LEFT, padx=2)
         
         # Ausgewählte Pairs
@@ -397,15 +397,15 @@ class TradingBotGUI:
         selected_buttons = ttk.Frame(selected_frame)
         selected_buttons.pack(fill=tk.X, pady=5)
         
-        ttk.Button(selected_buttons, text="➖ Entfernen", 
+        ttk.Button(selected_buttons, text="Entfernen", 
                   command=self.remove_selected_pairs).pack(side=tk.LEFT, padx=2)
-        ttk.Button(selected_buttons, text="🗑️ Alle entfernen", 
+        ttk.Button(selected_buttons, text="Alle entfernen", 
                   command=self.remove_all_pairs).pack(side=tk.LEFT, padx=2)
-        ttk.Button(selected_buttons, text="💾 Speichern", 
+        ttk.Button(selected_buttons, text="Speichern", 
                   command=self.save_trading_pairs).pack(side=tk.RIGHT, padx=2)
         
         # Standard-Pairs vorschlagen
-        default_pairs_frame = ttk.LabelFrame(right_frame, text="🚀 Schnellauswahl", padding=10)
+        default_pairs_frame = ttk.LabelFrame(right_frame, text="Schnellauswahl", padding=10)
         default_pairs_frame.pack(fill=tk.X, pady=10)
         
         default_pairs = [
@@ -425,7 +425,7 @@ class TradingBotGUI:
         self.load_current_pairs()
         
     def setup_tax_tab(self, parent):
-        tax_frame = ttk.LabelFrame(parent, text="📋 Steuerliche Handelsaufzeichnungen", padding=10)
+        tax_frame = ttk.LabelFrame(parent, text="Steuerliche Handelsaufzeichnungen", padding=10)
         tax_frame.pack(fill=tk.BOTH, expand=True, pady=5)
         
         report_frame = ttk.Frame(tax_frame)
@@ -466,11 +466,11 @@ class TradingBotGUI:
         main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         
         # Linke Seite - Bot Status
-        left_frame = ttk.LabelFrame(main_frame, text="🤖 Bot Status", padding=10)
+        left_frame = ttk.LabelFrame(main_frame, text="Bot Status", padding=10)
         left_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 5))
         
         # Rechte Seite - Aktivitätslog
-        right_frame = ttk.LabelFrame(main_frame, text="📋 Aktivitätslog", padding=10)
+        right_frame = ttk.LabelFrame(main_frame, text="Aktivitätslog", padding=10)
         right_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=(5, 0))
         
         # Bot Status Informationen
@@ -516,11 +516,11 @@ class TradingBotGUI:
         button_frame = ttk.Frame(left_frame)
         button_frame.grid(row=len(status_fields)+4, column=0, columnspan=2, sticky=tk.EW, pady=20)
         
-        ttk.Button(button_frame, text="🔄 Sofort Analyse", 
+        ttk.Button(button_frame, text="Sofort Analyse", 
                   command=self.quick_signal_check).pack(side=tk.LEFT, padx=2)
-        ttk.Button(button_frame, text="📊 Cache Aktualisieren", 
+        ttk.Button(button_frame, text="Cache Aktualisieren", 
                   command=self.force_cache_update).pack(side=tk.LEFT, padx=2)
-        ttk.Button(button_frame, text="🧹 Log Leeren", 
+        ttk.Button(button_frame, text="Log Leeren", 
                   command=self.clear_activity_log).pack(side=tk.LEFT, padx=2)
         
         # Aktivitätslog
@@ -656,8 +656,8 @@ class TradingBotGUI:
             return
             
         result = messagebox.askyesno(
-            "Alle Trades schließen", 
-            "Möchten Sie wirklich alle aktiven Trades schließen?"
+            "Alle Trades schliessen", 
+            "Möchten Sie wirklich alle aktiven Trades schliessen?"
         )
         
         if result:
@@ -890,7 +890,7 @@ Netto Gewinn: ${report['net_profit']:.2f}
         try:
             # Basis Status
             self.bot_status_vars['auto_trading'].set(
-                "🟢 AKTIV" if self.bot.auto_trading else "🔴 INAKTIV"
+                "AKTIV" if self.bot.auto_trading else "INAKTIV"
             )
             self.bot_status_vars['active_trades'].set(
                 f"{len(self.bot.active_trades)} / {self.bot.max_open_trades}"
@@ -902,7 +902,7 @@ Netto Gewinn: ${report['net_profit']:.2f}
             # Signal-Modus
             if hasattr(self.bot, 'use_quick_signals'):
                 self.bot_status_vars['signal_mode'].set(
-                    "⚡ Schnell-Modus" if self.bot.use_quick_signals else "📊 Backtest-Modus"
+                    "Schnell-Modus" if self.bot.use_quick_signals else "Backtest-Modus"
                 )
             
             # Zeit Informationen
@@ -968,7 +968,7 @@ Netto Gewinn: ${report['net_profit']:.2f}
             self.bot.quick_signal_check()
         
         threading.Thread(target=run_quick_check, daemon=True).start()
-        self.update_status("⚡ Schnelle Signalprüfung gestartet...")
+        self.update_status("Schnelle Signalprüfung gestartet...")
     
     def force_cache_update(self):
         """Erzwingt eine Cache-Aktualisierung"""
@@ -1025,10 +1025,10 @@ Netto Gewinn: ${report['net_profit']:.2f}
                         self.balance_tree.tag_configure('usdt', background='#e8f4fd')
                     
                 else:
-                    self.balance_info_var.set("❌ Keine Kontostandsdaten verfügbar")
+                    self.balance_info_var.set("Keine Kontostandsdaten verfügbar")
                     
             except Exception as e:
-                self.balance_info_var.set(f"❌ Fehler: {str(e)}")
+                self.balance_info_var.set(f"Fehler: {str(e)}")
                 print(f"Balance update error: {e}")
         
         threading.Thread(target=update, daemon=True).start()
@@ -1089,7 +1089,7 @@ Netto Gewinn: ${report['net_profit']:.2f}
             # Warnung bei Aktivierung
             result = messagebox.askyesno(
                 "Auto-Trading aktivieren", 
-                "⚠️  WARNUNG: Auto-Trading wird echte Trades ausführen!\n\n"
+                "WARNUNG: Auto-Trading wird echte Trades ausführen!\n\n"
                 "Möchten Sie wirklich fortfahren?"
             )
             if not result:
@@ -1102,11 +1102,11 @@ Netto Gewinn: ${report['net_profit']:.2f}
         
         if self.bot.auto_trading:
             messagebox.showinfo("Auto-Trading", 
-                              "✅ Auto-Trading ist jetzt AKTIV\n\n"
+                              "Auto-Trading ist jetzt AKTIV\n\n"
                               "Der Bot wird automatisch Trades basierend auf den Signalen ausführen.")
         else:
             messagebox.showinfo("Auto-Trading", 
-                              "❌ Auto-Trading ist jetzt INAKTIV\n\n"
+                              "Auto-Trading ist jetzt INAKTIV\n\n"
                               "Es werden keine automatischen Trades mehr ausgeführt.")
         
     def save_settings(self):
