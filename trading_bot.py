@@ -248,8 +248,8 @@ class KuCoinTradingBot:
             self.update_bot_activity(f"❌ Fehler bei schneller Signalprüfung: {e}")
             return {}
     
-    def run_complete_backtest(self, pairs=None):
-        """Führt vollständigen Backtest durch"""
+    def run_complete_backtest(self, pairs=None, execute_trades=False):
+        """Führt vollständigen Backtest durch und optional auch Trades"""
         try:
             self.update_bot_activity("📊 Starte Backtest...")
             
@@ -267,12 +267,41 @@ class KuCoinTradingBot:
             self.last_update = datetime.now()
             self.next_scheduled_update = self.last_update + timedelta(minutes=15)
             
+            # Automatische Trade-Ausführung wenn gewünscht
+            if execute_trades and self.auto_trading:
+                self.execute_trades_based_on_signals(results)
+            
             self.update_bot_activity(f"✅ Backtest abgeschlossen - {len(results)} Kryptos analysiert")
             return results
             
         except Exception as e:
             self.update_bot_activity(f"❌ Backtest Fehler: {e}")
             return {}
+        
+    def execute_trades_based_on_signals(self, results):
+        """Führt automatisch Trades basierend auf Backtest-Ergebnissen aus"""
+        if not self.auto_trading:
+            self.update_bot_activity("⚠️ Auto-Trading ist nicht aktiviert - keine Trades werden ausgeführt")
+            return
+            
+        if not results:
+            self.update_bot_activity("⚠️ Keine Ergebnisse für Trade-Ausführung verfügbar")
+            return
+            
+        executed_trades = 0
+        for crypto, data in results.items():
+            # Nur BUY-Signale mit hoher Confidence ausführen
+            if "BUY" in data['current_signal'] and data['confidence'] >= 70:
+                self.update_bot_activity(f"🎯 Versuche Trade für {crypto}: {data['current_signal']} (Confidence: {data['confidence']}%)")
+                
+                success = self.execute_trade(crypto, data['current_signal'])
+                if success:
+                    executed_trades += 1
+                    self.update_bot_activity(f"✅ Trade für {crypto} erfolgreich ausgeführt")
+                else:
+                    self.update_bot_activity(f"❌ Trade für {crypto} fehlgeschlagen")
+        
+        self.update_bot_activity(f"📊 Insgesamt {executed_trades} Trades ausgeführt")
     
     def get_balance_summary(self):
         """Gibt echte Kontostand-Übersicht zurück"""
@@ -398,9 +427,9 @@ class KuCoinTradingBot:
             if not current_price:
                 self.update_bot_activity(f"❌ Kann Preis für {symbol} nicht abrufen")
                 return
-                
+                    
             profit_loss = (current_price - trade['buy_price']) * trade['amount']
-            
+                
             # Echten Trade über API ausführen
             if self.auto_trading:
                 order_result = self.api.place_order(
@@ -409,7 +438,7 @@ class KuCoinTradingBot:
                     order_type='market',
                     size=trade['amount']
                 )
-                
+                    
                 if order_result:
                     order_id = order_result.get('orderId', 'unknown')
                     self.update_bot_activity(f"✅ Verkauf order platziert für {symbol}")
@@ -419,50 +448,53 @@ class KuCoinTradingBot:
             else:
                 order_id = 'simulated'
             
-            # Logge den Trade
-            closed_trade = self.tax_logger.log_trade(
-                symbol=symbol,
-                side='SELL', 
-                amount=trade['amount'],
-                price=current_price,
-                reason=reason
-            )
+            # KORRIGIERT: Logge den Trade mit Dictionary
+            trade_data = {
+                'symbol': symbol,
+                'side': 'SELL',
+                'amount': trade['amount'],
+                'price': current_price,
+                'reason': reason
+            }
+            closed_trade = self.tax_logger.log_trade(trade_data)
+            
+            # Füge Profit/Loss Informationen hinzu
             closed_trade['profit_loss'] = profit_loss
             closed_trade['profit_loss_percent'] = (profit_loss / (trade['buy_price'] * trade['amount'])) * 100
             closed_trade['order_id'] = order_id
-            
+                
             self.update_bot_activity(f"🔒 Trade geschlossen: {symbol} - {reason} - P/L: ${profit_loss:.2f}")
     
     def execute_trade(self, symbol, signal):
         """Führt einen Trade mit echter API aus"""
         if not self.auto_trading:
             return False
-            
+                
         if symbol in self.active_trades:
             self.update_bot_activity(f"⚠️ Trade bereits aktiv für {symbol}")
             return False
-            
+                
         if len(self.active_trades) >= self.max_open_trades:
             self.update_bot_activity("⚠️ Maximale Anzahl offener Trades erreicht")
             return False
-            
+                
         current_price = self.get_current_price(symbol)
         if not current_price:
             self.update_bot_activity(f"❌ Kann Preis für {symbol} nicht abrufen")
             return False
-        
+            
         # Berechne Trade-Größe basierend auf Portfolio
         portfolio_value = self.calculate_portfolio_value()
         if portfolio_value <= 0:
             self.update_bot_activity("❌ Kein Portfolio-Wert verfügbar")
             return False
-            
+                
         trade_value = portfolio_value * (self.trade_size_percent / 100)
         trade_amount = trade_value / current_price
-        
+            
         # Validiere und korrigiere Trade-Größe
         valid_amount = self.api.calculate_valid_size(symbol, trade_amount)
-        
+            
         if "BUY" in signal:
             # Echten Trade über API ausführen
             order_result = self.api.place_order(
@@ -471,7 +503,7 @@ class KuCoinTradingBot:
                 order_type='market',
                 size=valid_amount
             )
-            
+                
             if order_result:
                 self.active_trades[symbol] = {
                     'buy_price': current_price,
@@ -479,14 +511,17 @@ class KuCoinTradingBot:
                     'timestamp': datetime.now(),
                     'order_id': order_result.get('orderId', 'unknown')
                 }
+                    
+                # KORRIGIERT: Logge den Trade mit Dictionary
+                trade_data = {
+                    'symbol': symbol,
+                    'side': 'BUY',
+                    'amount': valid_amount,
+                    'price': current_price,
+                    'reason': f"Auto-Trade: {signal}"
+                }
+                self.tax_logger.log_trade(trade_data)
                 
-                self.tax_logger.log_trade(
-                    symbol=symbol,
-                    side='BUY',
-                    amount=valid_amount,
-                    price=current_price,
-                    reason=f"Auto-Trade: {signal}"
-                )
                 self.last_trade_time = datetime.now()
                 self.update_bot_activity(f"🟢 Trade eröffnet: {symbol} - {valid_amount:.4f} @ ${current_price:.2f}")
                 return True

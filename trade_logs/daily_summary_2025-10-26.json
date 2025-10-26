@@ -1,10 +1,10 @@
 {
   "date": "2025-10-26",
-  "total_trades": 6,
-  "buy_trades": 4,
+  "total_trades": 8,
+  "buy_trades": 6,
   "sell_trades": 2,
-  "total_volume": 1271.4565316720978,
-  "total_fees": 1.271456531672098,
+  "total_volume": 1356.715352630513,
+  "total_fees": 1.3567153526305133,
   "total_profit_loss": -0.4781876379019979,
   "trades": [
     {
@@ -47,6 +47,20 @@
       "side": "BUY",
       "amount": 0.0520745,
       "price": 4066.88,
+      "profit_loss": 0
+    },
+    {
+      "symbol": "BTC-USDT",
+      "side": "BUY",
+      "amount": 0.00037193,
+      "price": 114617.7,
+      "profit_loss": 0
+    },
+    {
+      "symbol": "SHIB-USDT",
+      "side": "BUY",
+      "amount": 4023127.5762,
+      "price": 1.0596e-05,
       "profit_loss": 0
     }
   ]

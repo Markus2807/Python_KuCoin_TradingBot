@@ -94,5 +94,37 @@
     "profit_loss_percent": 0,
     "order_id": "QUICK_20251026203817",
     "portfolio_value": 423.5613145
+  },
+  {
+    "timestamp": "26.10.2025 23:59:33",
+    "timestamp_iso": "2025-10-26T23:59:33.587185",
+    "trade_id": "TRADE_20251026_235933_BTC-USDT",
+    "side": "BUY",
+    "symbol": "BTC-USDT",
+    "amount": 0.00037193,
+    "price": 114617.7,
+    "total_value": 42.629761161000005,
+    "fees": 0.04262976116100001,
+    "reason": "Auto-Trade: STRONG_BUY",
+    "profit_loss": 0,
+    "profit_loss_percent": 0,
+    "order_id": "",
+    "portfolio_value": 0
+  },
+  {
+    "timestamp": "26.10.2025 23:59:39",
+    "timestamp_iso": "2025-10-26T23:59:39.993991",
+    "trade_id": "TRADE_20251026_235939_SHIB-USDT",
+    "side": "BUY",
+    "symbol": "SHIB-USDT",
+    "amount": 4023127.5762,
+    "price": 1.0596e-05,
+    "total_value": 42.6290597974152,
+    "fees": 0.0426290597974152,
+    "reason": "Auto-Trade: STRONG_BUY",
+    "profit_loss": 0,
+    "profit_loss_percent": 0,
+    "order_id": "",
+    "portfolio_value": 0
   }
 ]

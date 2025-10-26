@@ -189,6 +189,11 @@ class TradingBotGUI:
                   command=self.start_backtest).pack(side=tk.LEFT, padx=2)
         ttk.Button(button_frame, text="Alle Trades Schliessen", 
                   command=self.close_all_trades).pack(side=tk.LEFT, padx=2)
+                # In setup_control_panel Methode:
+        ttk.Button(button_frame, text="Signale & Trades", 
+                command=self.execute_signals_and_trades).pack(side=tk.LEFT, padx=2)
+        ttk.Button(button_frame, text="Sofort Trades", 
+          command=self.quick_trade_execution).pack(side=tk.LEFT, padx=2)
         
     def setup_recommendations_panel_large(self, parent):
         """Recommendations Panel für große Displays"""
@@ -1295,3 +1300,54 @@ Display Auflösung: {self.screen_width}x{self.screen_height}
             self.load_available_pairs()
         
         self.root.mainloop()
+
+    # Neue Methode in der GUI-Klasse:
+    def execute_signals_and_trades(self):
+        """Führt Backtest durch und setzt Signale sofort in Trades um"""
+        def run():
+            self.update_status("Führe Backtest aus und setze Trades um...")
+            
+            # Stelle sicher, dass Auto-Trading aktiviert ist
+            if not self.bot.auto_trading:
+                self.update_status("❌ Auto-Trading ist nicht aktiviert!")
+                messagebox.showwarning("Auto-Trading", "Bitte aktivieren Sie zuerst Auto-Trading!")
+                return
+                
+            results = self.bot.run_complete_backtest(execute_trades=True)
+            if results:
+                self.update_recommendations()
+                self.update_status(f"Backtest + Trades abgeschlossen - {len(results)} Kryptos")
+                
+                # Zeige Handelszusammenfassung
+                buy_signals = sum(1 for data in results.values() if "BUY" in data['current_signal'] and data['confidence'] >= 70)
+                messagebox.showinfo("Handelszusammenfassung", 
+                                f"Backtest abgeschlossen!\n\n"
+                                f"Analysierte Kryptos: {len(results)}\n"
+                                f"Kauf-Signale: {buy_signals}\n"
+                                f"Aktive Trades: {len(self.bot.active_trades)}")
+            else:
+                self.update_status("Backtest fehlgeschlagen")
+        
+        threading.Thread(target=run, daemon=True).start()
+    def quick_trade_execution(self):
+        """Einfache Methode zum Testen der Trade-Ausführung"""
+        def run():
+            self.update_status("Starte Backtest und Trade-Ausführung...")
+            
+            # Backtest durchführen
+            results = self.bot.run_complete_backtest()
+            
+            if results and self.bot.auto_trading:
+                # Manuell Trades ausführen
+                executed = 0
+                for crypto, data in results.items():
+                    if "BUY" in data['current_signal'] and data['confidence'] >= 70:
+                        if self.bot.execute_trade(crypto, data['current_signal']):
+                            executed += 1
+                
+                self.update_status(f"{executed} Trades ausgeführt")
+                self.update_recommendations()
+            else:
+                self.update_status("Keine Trades ausgeführt - Prüfe Auto-Trading Einstellung")
+        
+        threading.Thread(target=run, daemon=True).start()
