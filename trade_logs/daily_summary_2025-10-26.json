@@ -1,0 +1,53 @@
+{
+  "date": "2025-10-26",
+  "total_trades": 6,
+  "buy_trades": 4,
+  "sell_trades": 2,
+  "total_volume": 1271.4565316720978,
+  "total_fees": 1.271456531672098,
+  "total_profit_loss": -0.4781876379019979,
+  "trades": [
+    {
+      "symbol": "SOL",
+      "side": "BUY",
+      "amount": 1.0653194585427135,
+      "price": 199.0,
+      "profit_loss": 0
+    },
+    {
+      "symbol": "SOL",
+      "side": "SELL",
+      "amount": 1.0653194585427135,
+      "price": 199.07,
+      "profit_loss": 0.07457236209798268
+    },
+    {
+      "symbol": "SOL",
+      "side": "BUY",
+      "amount": 1.0652659275915783,
+      "price": 199.01,
+      "profit_loss": 0
+    },
+    {
+      "symbol": "SOL",
+      "side": "BUY",
+      "amount": 1.063,
+      "price": 199.51,
+      "profit_loss": 0
+    },
+    {
+      "symbol": "SOL",
+      "side": "SELL",
+      "amount": 1.063,
+      "price": 198.99,
+      "profit_loss": -0.5527599999999806
+    },
+    {
+      "symbol": "ETH",
+      "side": "BUY",
+      "amount": 0.0520745,
+      "price": 4066.88,
+      "profit_loss": 0
+    }
+  ]
+}
