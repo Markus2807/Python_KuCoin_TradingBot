@@ -43,6 +43,27 @@ class TradingBotGUI:
         self.root.after(2000, self.update_trade_history)    # Trade-History nach 2 Sekunden
         self.root.after(3000, self.update_tax_log)  # Finanzamt-Log nach 3 Sekunden
         self.root.after(3000, self.update_recommendations)  # Empfehlungen nach 3 Sekunden
+        # Einmalig Finanzamt-Daten laden (nur falls Tab existiert)
+        self.root.after(5000, self.update_finanzamt_on_demand)
+
+    def update_finanzamt_on_demand(self):
+        """Aktualisiert Finanzamt-Tab nur bei Bedarf"""
+        if hasattr(self, 'tax_tree') and self.tax_tree.winfo_ismapped():
+            # Nur aktualisieren wenn Tab sichtbar ist
+            self.update_tax_log()
+            self.update_trade_history()
+
+    def on_tab_changed(self, event):
+        """Wird aufgerufen wenn Tab gewechselt wird"""
+        notebook = event.widget
+        current_tab = notebook.select()
+        tab_text = notebook.tab(current_tab, "text")
+        
+        if tab_text == "Finanzamt":
+            # Finanzamt-Tab wurde aktiviert -> einmalig aktualisieren
+            self.update_tax_log()
+            self.update_trade_history()
+
         
     def setup_large_gui(self):
         """Große GUI für High-Res Displays (ab 1280x720)"""
@@ -51,6 +72,9 @@ class TradingBotGUI:
         
         notebook = ttk.Notebook(self.root)
         notebook.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+        # Tab-Wechsel Event hinzufügen
+        notebook.bind("<<NotebookTabChanged>>", self.on_tab_changed)
         
         # Mehr Tabs für große Displays
         trading_tab = ttk.Frame(notebook)
@@ -110,7 +134,7 @@ class TradingBotGUI:
         
         self.setup_balance_panel_large(left_frame)
         self.setup_control_panel_large(left_frame)
-        self.setup_recommendations_panel_large(left_frame)
+        self.setup_recommendations_with_trading(left_frame)
         self.setup_active_trades_panel_large(right_frame)
         self.setup_trade_history_panel_large(right_frame)
         
@@ -349,6 +373,8 @@ class TradingBotGUI:
                   command=self.generate_tax_report).pack(side=tk.LEFT, padx=2)
         ttk.Button(report_frame, text="Logs Exportieren", 
                   command=self.export_logs).pack(side=tk.LEFT, padx=2)
+        ttk.Button(report_frame, text="Daten Aktualisieren", 
+              command=self.force_tax_update).pack(side=tk.LEFT, padx=2)  # NEU
         ttk.Button(report_frame, text="Logs Anzeigen", 
                   command=self.show_tax_logs).pack(side=tk.LEFT, padx=2)
         ttk.Button(report_frame, text="Debug Info", 
@@ -373,6 +399,13 @@ class TradingBotGUI:
         
         self.total_profit_var = tk.StringVar(value="Gesamtgewinn: €0.00")
         ttk.Label(info_frame, textvariable=self.total_profit_var).pack(side=tk.LEFT, padx=20)
+
+    def force_tax_update(self):
+        """Aktualisiert Finanzamt-Daten manuell"""
+        self.update_status("Aktualisiere Finanzamt-Daten...")
+        self.update_tax_log()
+        self.update_trade_history()
+        self.update_status("Finanzamt-Daten aktualisiert")
         
     def setup_monitoring_tab_large(self, parent):
         """Monitoring Tab für große Displays"""
@@ -686,11 +719,15 @@ class TradingBotGUI:
                     )
                 else:
                     self.bot_status_vars['last_trade'].set("--:--")
-                
+                                        
+                # API Statistiken korrekt anzeigen
                 api_stats = self.bot.api.get_api_stats()
-                if api_stats and 'api_requests' in self.bot_status_vars:
-                    self.bot_status_vars['api_requests'].set(str(api_stats['request_count']))
-                        
+                if api_stats:
+                    if 'total_requests' in self.bot_status_vars:
+                        self.bot_status_vars['total_requests'].set(str(api_stats['request_count']))
+                    if 'last_request' in self.bot_status_vars:
+                        self.bot_status_vars['last_request'].set(api_stats['last_request_time'])
+                            
         except Exception as e:
             print(f"Status update error: {e}")
             
@@ -1162,25 +1199,29 @@ class TradingBotGUI:
         print(f"Status: {message}")
 
     def start_auto_updates(self):
-        """Startet automatische Updates - ERWEITERT"""
-        def update_loop():
+        """Startet automatische Updates - OPTIMIERT"""
+        def auto_update_loop():
+            """Interne Update-Schleife"""
             while True:
                 try:
-                    # Führe GUI-Updates im Hauptthread aus
+                    # NUR wichtige Updates im Hintergrund
                     self.root.after(0, self.update_balance_display)
                     self.root.after(0, self.update_recommendations)
                     self.root.after(0, self.update_active_trades)
-                    self.root.after(0, self.update_trade_history)
-                    self.root.after(0, self.update_tax_log)  # WICHTIG: Finanzamt-Log updaten
                     if hasattr(self, 'bot_status_vars'):
                         self.root.after(0, self.update_bot_status)
+                        
+                    # Trade-History NUR bei Bedarf (nicht zyklisch)
+                    # self.root.after(0, self.update_trade_history)  # ENTFERNT
+                    # self.root.after(0, self.update_tax_log)  # ENTFERNT
+                        
                 except Exception as e:
                     print(f"Auto-update error: {e}")
                     
                 time.sleep(30)  # Alle 30 Sekunden updaten
                     
-        threading.Thread(target=update_loop, daemon=True).start()
-        print("✅ Auto-Updates gestartet (inkl. Finanzamt-Log)")
+        threading.Thread(target=auto_update_loop, daemon=True).start()
+        print("✅ Auto-Updates gestartet (ohne Finanzamt-Log)")
 
     # Tax und Debug Methoden
     def generate_tax_report(self):
@@ -1556,3 +1597,181 @@ Display Auflösung: {self.screen_width}x{self.screen_height}
                 self.root.after(0, lambda: self.update_status(error_msg))
         
         threading.Thread(target=update, daemon=True).start()
+
+    def setup_recommendations_with_trading(self, parent):
+        """Erweitert das Recommendations Panel mit Trade-Buttons"""
+        rec_frame = ttk.LabelFrame(parent, text="Trading Empfehlungen", padding=10)
+        rec_frame.pack(fill=tk.BOTH, expand=True, pady=5)
+        
+        # Toolbar für Empfehlungen
+        toolbar = ttk.Frame(rec_frame)
+        toolbar.pack(fill=tk.X, pady=5)
+        
+        ttk.Button(toolbar, text="Alle Kauf-Signale ausführen", 
+                command=self.execute_all_buy_signals).pack(side=tk.LEFT, padx=2)
+        ttk.Button(toolbar, text="Ausgewählten Trade ausführen", 
+                command=self.execute_selected_trade).pack(side=tk.LEFT, padx=2)
+        
+        # Treeview mit Action-Spalte
+        columns = ('Symbol', 'Preis', 'Signal', 'Confidence', 'Performance', 'Aktion')
+        self.rec_tree = ttk.Treeview(rec_frame, columns=columns, show='headings', height=8)
+        
+        for col in columns:
+            self.rec_tree.heading(col, text=col)
+            self.rec_tree.column(col, width=90)
+        
+        self.rec_tree.column('Symbol', width=100)
+        self.rec_tree.column('Aktion', width=120)
+        self.rec_tree.pack(fill=tk.BOTH, expand=True)
+        
+        # Double-Click Event
+        self.rec_tree.bind('<Double-1>', self.on_recommendation_double_click)
+
+    def execute_selected_trade(self):
+        """Führt Trade für ausgewählte Empfehlung aus"""
+        selection = self.rec_tree.selection()
+        if not selection:
+            messagebox.showwarning("Warnung", "Bitte wählen Sie eine Empfehlung aus!")
+            return
+            
+        item = self.rec_tree.item(selection[0])
+        values = item['values']
+        symbol = values[0]
+        signal = values[2]
+        
+        if "BUY" not in signal:
+            messagebox.showwarning("Warnung", "Nur KAUF-Signale können ausgeführt werden!")
+            return
+            
+        self.execute_manual_trade(symbol, signal)
+
+    def execute_all_buy_signals(self):
+        """Führt alle KAUF-Signale aus"""
+        buy_signals = []
+        for item in self.rec_tree.get_children():
+            values = self.rec_tree.item(item)['values']
+            if "BUY" in values[2] and float(values[3].replace('%', '')) >= 70:
+                buy_signals.append(values[0])
+        
+        if not buy_signals:
+            messagebox.showinfo("Info", "Keine KAUF-Signale mit Confidence >= 70% gefunden")
+            return
+            
+        result = messagebox.askyesno(
+            "Bestätigung", 
+            f"Möchten Sie {len(buy_signals)} KAUF-Signale ausführen?\n\n"
+            f"Symbole: {', '.join(buy_signals)}"
+        )
+        
+        if result:
+            for symbol in buy_signals:
+                self.execute_manual_trade(symbol, "STRONG_BUY")
+
+    def execute_manual_trade(self, symbol, signal):
+        """Führt einen manuellen Trade aus"""
+        def execute():
+            try:
+                self.update_status(f"🎯 Führe manuellen Trade aus: {symbol} {signal}")
+                
+                # Temporär Auto-Trading aktivieren falls nötig
+                was_auto_trading = self.bot.auto_trading
+                if not was_auto_trading:
+                    self.bot.auto_trading = True
+                    
+                # Trade ausführen
+                success = self.bot.execute_trade(symbol, signal)
+                
+                # Auto-Trading Status zurücksetzen
+                if not was_auto_trading:
+                    self.bot.auto_trading = False
+                    
+                if success:
+                    messagebox.showinfo("Erfolg", f"Trade für {symbol} erfolgreich ausgeführt!")
+                    
+                    # WICHTIG: Nach Trade alle relevanten Teile aktualisieren
+                    self.update_active_trades()
+                    self.update_balance_display()
+                    self.update_recommendations()
+                    
+                    # Finanzamt-Tab nur wenn sichtbar
+                    self.update_finanzamt_on_demand()
+                    
+                else:
+                    messagebox.showerror("Fehler", f"Trade für {symbol} fehlgeschlagen!")
+                    
+            except Exception as e:
+                messagebox.showerror("Fehler", f"Trade-Fehler: {str(e)}")
+                
+        # Bestätigungsdialog
+        current_price = self.bot.get_current_price(symbol)
+        if current_price:
+            confirmation = messagebox.askyesno(
+                "Trade bestätigen",
+                f"Möchten Sie diesen Trade ausführen?\n\n"
+                f"Symbol: {symbol}\n"
+                f"Signal: {signal}\n"
+                f"Aktueller Preis: ${current_price:.6f}\n"
+                f"Trade-Größe: {self.bot.trade_size_percent}% des Portfolios"
+            )
+            
+            if confirmation:
+                threading.Thread(target=execute, daemon=True).start()
+
+    def on_recommendation_double_click(self, event):
+        """Handle Double-Click auf Empfehlung"""
+        self.execute_selected_trade()
+
+    def update_recommendations_with_actions(self):
+        """Aktualisiert Empfehlungen mit Action-Buttons (vereinfacht)"""
+        if not hasattr(self, 'rec_tree'):
+            return
+            
+        for item in self.rec_tree.get_children():
+            self.rec_tree.delete(item)
+            
+        if not self.bot.current_recommendations:
+            self.rec_tree.insert('', tk.END, values=(
+                "Keine", "Daten", "verfügbar", "", "", ""
+            ))
+            return
+            
+        for crypto, data in self.bot.current_recommendations.items():
+            try:
+                signal = data.get('current_signal', 'HOLD')
+                confidence = data.get('confidence', 0)
+                price = data.get('current_price', 0)
+                performance = f"{data.get('total_return', 0):+.1f}%"
+                
+                # Action-Button Text basierend auf Signal
+                action_text = ""
+                if "BUY" in signal and confidence >= 70:
+                    action_text = "🟢 HANDELN"
+                elif "SELL" in signal:
+                    action_text = "🔴 VERKAUFEN"
+                else:
+                    action_text = "🟡 WARTEN"
+                
+                tags = ()
+                if "BUY" in signal:
+                    tags = ('buy',)
+                elif "SELL" in signal:
+                    tags = ('sell',)
+                else:
+                    tags = ('hold',)
+                    
+                self.rec_tree.insert('', tk.END, values=(
+                    crypto, 
+                    f"${price:.6f}", 
+                    signal, 
+                    f"{confidence:.0f}%", 
+                    performance, 
+                    action_text
+                ), tags=tags)
+                
+            except Exception as e:
+                continue
+                
+        if hasattr(self, 'rec_tree'):
+            self.rec_tree.tag_configure('buy', background='#d4edda')
+            self.rec_tree.tag_configure('sell', background='#f8d7da')
+            self.rec_tree.tag_configure('hold', background='#fff3cd')

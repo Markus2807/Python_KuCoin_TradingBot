@@ -317,7 +317,7 @@ class KuCoinAPI:
         """Gibt API-Statistiken zurück"""
         return {
             'request_count': self.request_count,
-            'last_request_time': self.last_request_time
+            'last_request_time': self.last_request_time.strftime('%H:%M:%S') if self.last_request_time else '-'
         }
     
     def _get_kucoin_timestamp(self):

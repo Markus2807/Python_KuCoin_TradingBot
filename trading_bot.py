@@ -42,11 +42,19 @@ class KuCoinTradingBot:
         print(f"✅ KuCoin Trading Bot initialisiert - Sandbox: {sandbox}")
         
     def load_trade_history(self):
-        """Lädt Trade-History aus dem Tax-Logger"""
+        """Lädt Trade-History aus dem Tax-Logger - KORRIGIERT"""
         try:
             recent_trades = self.tax_logger.get_recent_trades(1000)  # Letzte 1000 Trades
+            
+            # DEBUG: Ausgabe zur Überprüfung
+            print(f"🔍 Lade Trade-History: {len(recent_trades)} Trades gefunden")
+            if recent_trades:
+                for i, trade in enumerate(recent_trades[:3]):  # Zeige erste 3 Trades
+                    print(f"  Trade {i+1}: {trade.get('symbol')} {trade.get('side')} {trade.get('timestamp')}")
+            
             self.trade_history = recent_trades
             print(f"✅ {len(self.trade_history)} Trades aus History geladen")
+        
         except Exception as e:
             print(f"❌ Fehler beim Laden der Trade-History: {e}")
             self.trade_history = []
@@ -424,28 +432,35 @@ class KuCoinTradingBot:
             self.update_bot_activity(f"🔒 Trade geschlossen: {symbol} - {reason} - P/L: ${profit_loss:.2f}")
     
     def execute_trade(self, symbol, signal):
-        """Führt einen Trade mit echter API aus"""
+        """Führt einen Trade mit echter API aus - KORRIGIERT"""
         if not self.auto_trading:
+            print(f"❌ Auto-Trading ist deaktiviert, kann Trade nicht ausführen")
             return False
                 
         if symbol in self.active_trades:
+            print(f"❌ Trade für {symbol} bereits aktiv")
             return False
                 
         if len(self.active_trades) >= self.max_open_trades:
+            print(f"❌ Maximale Anzahl offener Trades erreicht")
             return False
                 
         current_price = self.get_current_price(symbol)
         if not current_price:
+            print(f"❌ Kein aktueller Preis für {symbol} verfügbar")
             return False
             
         portfolio_value = self.calculate_portfolio_value()
         if portfolio_value <= 0:
+            print(f"❌ Portfolio-Wert ist 0 oder negativ")
             return False
                 
         trade_value = portfolio_value * (self.trade_size_percent / 100)
         trade_amount = trade_value / current_price
             
         valid_amount = self.api.calculate_valid_size(symbol, trade_amount)
+        
+        print(f"🔄 Versuche Trade: {symbol} {signal} - Menge: {valid_amount:.6f} - Preis: ${current_price:.6f}")
             
         if "BUY" in signal:
             order_result = self.api.place_order(
@@ -456,6 +471,8 @@ class KuCoinTradingBot:
             )
                 
             if order_result:
+                print(f"✅ API Order erfolgreich: {order_result}")
+                
                 self.active_trades[symbol] = {
                     'buy_price': current_price,
                     'amount': valid_amount,
@@ -472,17 +489,24 @@ class KuCoinTradingBot:
                     'profit_loss_percent': 0,
                     'reason': f"Auto-Trade: {signal}",
                     'order_id': order_result.get('orderId', 'unknown'),
-                    'portfolio_value': self.calculate_portfolio_value()
+                    'portfolio_value': portfolio_value
                 }
-                self.tax_logger.log_trade(trade_data)
                 
-                # Aktualisiere Trade-History
+                # Trade protokollieren
+                logged_trade = self.tax_logger.log_trade(trade_data)
+                if logged_trade:
+                    print(f"✅ Trade erfolgreich protokolliert: {symbol}")
+                else:
+                    print(f"❌ Trade konnte nicht protokolliert werden: {symbol}")
+                
+                # Trade-History SOFORT aktualisieren
                 self.load_trade_history()
                 
                 self.last_trade_time = datetime.now()
                 self.update_bot_activity(f"🟢 Trade eröffnet: {symbol} - {valid_amount:.4f} @ ${current_price:.2f}")
                 return True
             else:
+                print(f"❌ API Order fehlgeschlagen für {symbol}")
                 return False
         return False
     
@@ -513,6 +537,10 @@ class KuCoinTradingBot:
                     }
                     gui_trades.append(gui_trade)
                     
+                    # Debug-Ausgabe für die ersten paar Trades
+                    if len(gui_trades) <= 3:
+                        print(f"  📋 GUI Trade: {gui_trade['symbol']} {gui_trade['side']} {gui_trade['timestamp']}")
+                        
                 except Exception as e:
                     print(f"⚠️  Fehler beim Konvertieren des Trades: {e}")
                     continue

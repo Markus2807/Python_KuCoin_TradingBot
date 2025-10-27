@@ -8,6 +8,7 @@ class TaxLogger:
     
     def __init__(self, log_directory="trade_logs"):
         self.log_directory = log_directory
+        self.csv_log_path = os.path.join(self.log_directory, "trades_finanzamt.csv")
         self.json_log_path = os.path.join(self.log_directory, "trading_history.json")
         self.setup_logging()
         
@@ -16,9 +17,9 @@ class TaxLogger:
         if not os.path.exists(self.log_directory):
             os.makedirs(self.log_directory)
             
-        trade_log_path = os.path.join(self.log_directory, "trades_finanzamt.csv")
-        if not os.path.exists(trade_log_path):
-            with open(trade_log_path, 'w', newline='', encoding='utf-8') as f:
+        # CSV Datei erstellen falls nicht vorhanden
+        if not os.path.exists(self.csv_log_path):
+            with open(self.csv_log_path, 'w', newline='', encoding='utf-8') as f:
                 writer = csv.writer(f, delimiter=';')
                 writer.writerow([
                     'Datum_Uhrzeit', 'Typ', 'Symbol', 'Menge', 'Preis_pro_Einheit',
@@ -26,7 +27,7 @@ class TaxLogger:
                     'Gewinn_Verlust_prozent', 'Handelsgrund', 'Order_ID', 'Portfolio_Wert'
                 ])
                 
-        # Stelle sicher, dass JSON-Datei existiert
+        # JSON Datei erstellen falls nicht vorhanden
         if not os.path.exists(self.json_log_path):
             with open(self.json_log_path, 'w', encoding='utf-8') as f:
                 json.dump([], f, indent=2, ensure_ascii=False)
@@ -43,6 +44,41 @@ class TaxLogger:
         
         return trade_record
     
+    def _log_to_csv(self, timestamp, trade_data):
+        """Loggt Trade in CSV Format für Finanzamt"""
+        try:
+            with open(self.csv_log_path, 'a', newline='', encoding='utf-8') as f:
+                writer = csv.writer(f, delimiter=';')
+                
+                # Berechne Werte
+                total_value = trade_data['amount'] * trade_data['price']
+                fees = total_value * 0.001  # 0.1% Gebühren
+                net_amount = total_value - fees
+                profit_loss = trade_data.get('profit_loss', 0)
+                profit_loss_percent = trade_data.get('profit_loss_percent', 0)
+                portfolio_value = trade_data.get('portfolio_value', 0)
+                
+                writer.writerow([
+                    timestamp,
+                    trade_data['side'],
+                    trade_data['symbol'],
+                    f"{trade_data['amount']:.8f}",
+                    f"{trade_data['price']:.8f}",
+                    f"{total_value:.2f}",
+                    f"{fees:.2f}",
+                    f"{net_amount:.2f}",
+                    f"{profit_loss:.2f}",
+                    f"{profit_loss_percent:.2f}",
+                    trade_data.get('reason', ''),
+                    trade_data.get('order_id', ''),
+                    f"{portfolio_value:.2f}"
+                ])
+                
+            print(f"✅ Trade in CSV geloggt: {trade_data['symbol']} {trade_data['side']}")
+            
+        except Exception as e:
+            print(f"❌ Fehler beim CSV-Logging: {e}")
+    
     def _log_to_json(self, timestamp, trade_data):
         """Loggt Trade in JSON Format - KORRIGIERT"""
         try:
@@ -53,6 +89,10 @@ class TaxLogger:
             else:
                 history = []
                 
+            # Berechne Werte
+            total_value = trade_data['amount'] * trade_data['price']
+            fees = total_value * 0.001  # 0.1% Gebühren
+            
             # Erstelle Trade-Record
             trade_record = {
                 'timestamp': timestamp,
@@ -62,8 +102,8 @@ class TaxLogger:
                 'symbol': trade_data['symbol'],
                 'amount': float(trade_data['amount']),
                 'price': float(trade_data['price']),
-                'total_value': float(trade_data['amount'] * trade_data['price']),
-                'fees': float(trade_data['amount'] * trade_data['price'] * 0.001),
+                'total_value': float(total_value),
+                'fees': float(fees),
                 'reason': trade_data.get('reason', ''),
                 'profit_loss': trade_data.get('profit_loss', 0),
                 'profit_loss_percent': trade_data.get('profit_loss_percent', 0),
@@ -84,6 +124,11 @@ class TaxLogger:
         except Exception as e:
             print(f"❌ Fehler beim JSON-Logging: {e}")
             return None
+    
+    def _update_daily_summary(self, trade_data):
+        """Aktualisiert tägliche Zusammenfassung (kann später erweitert werden)"""
+        # Kann für tägliche Reports erweitert werden
+        pass
     
     def get_recent_trades(self, limit=100):
         """Holt die neuesten Trades aus der JSON-Historie - KORRIGIERT"""
@@ -114,44 +159,6 @@ class TaxLogger:
             print(f"❌ Fehler beim Laden der JSON-History: {e}")
             return []
     
-    def get_trade_statistics(self):
-        """Berechnet Handelsstatistiken"""
-        try:
-            with open(self.json_log_path, 'r', encoding='utf-8') as f:
-                history = json.load(f)
-            
-            if not history:
-                return {}
-            
-            total_trades = len(history)
-            buy_trades = len([t for t in history if t['side'] == 'BUY'])
-            sell_trades = len([t for t in history if t['side'] == 'SELL'])
-            
-            profitable_trades = len([t for t in history if t.get('profit_loss', 0) > 0])
-            losing_trades = len([t for t in history if t.get('profit_loss', 0) < 0])
-            
-            total_profit_loss = sum(t.get('profit_loss', 0) for t in history)
-            total_fees = sum(t.get('fees', 0) for t in history)
-            total_volume = sum(t.get('total_value', 0) for t in history)
-            
-            win_rate = (profitable_trades / sell_trades * 100) if sell_trades > 0 else 0
-            
-            return {
-                'total_trades': total_trades,
-                'buy_trades': buy_trades,
-                'sell_trades': sell_trades,
-                'profitable_trades': profitable_trades,
-                'losing_trades': losing_trades,
-                'win_rate': round(win_rate, 2),
-                'total_profit_loss': round(total_profit_loss, 2),
-                'total_fees': round(total_fees, 2),
-                'total_volume': round(total_volume, 2),
-                'average_trade_value': round(total_volume / total_trades, 2) if total_trades > 0 else 0
-            }
-            
-        except Exception as e:
-            return {}
-        
     def get_trade_statistics(self):
         """Berechnet detaillierte Handelsstatistiken - KORRIGIERT"""
         try:
