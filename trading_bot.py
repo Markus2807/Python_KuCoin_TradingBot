@@ -1,20 +1,12 @@
-
 import time
 import json
-import csv
-import requests
 from datetime import datetime, timedelta
 import threading
-from collections import defaultdict, deque
-import math
-import os
-import random
 from api_client import KuCoinAPI
 from tax_logger import TaxLogger
 
 class KuCoinTradingBot:
     def __init__(self, api_key, api_secret, api_passphrase, sandbox=False):
-        # Verwende den echten API Client aus api_client.py
         self.api = KuCoinAPI(api_key, api_secret, api_passphrase, sandbox)
         self.tax_logger = TaxLogger()
         self.active_trades = {}
@@ -22,7 +14,7 @@ class KuCoinTradingBot:
         self.current_recommendations = {}
         
         # Trading Einstellungen
-        self.auto_trading = False  # Standardmäßig inaktiv für Sicherheit
+        self.auto_trading = False
         self.stop_loss_percent = 2.0
         self.trade_size_percent = 10.0
         self.max_open_trades = 5
@@ -31,7 +23,7 @@ class KuCoinTradingBot:
         self.backtest_interval = '15min'
         
         # Konfigurierbare Kryptowährungen
-        self.trading_pairs = ['BTC-USDT', 'ETH-USDT', 'ADA-USDT', 'DOT-USDT', 'LINK-USDT']
+        self.trading_pairs = ['BTC-USDT', 'ETH-USDT', 'XRP-USDT', 'DOGE-USDT', 'SOL-USDT', 'SHIB-USDT', 'BNB-USDT']
         
         # Cache
         self.price_cache = {}
@@ -41,25 +33,23 @@ class KuCoinTradingBot:
         self.last_trade_time = None
         
         # Performance Tracking
-        self.use_quick_signals = True
-        self.bot_activity_log = []
         self.gui_reference = None
         self.headless_reference = None
         
-        # Teste API-Verbindung
-        self.test_api_connection()
+        # Lade Trade-History beim Start
+        self.load_trade_history()
         
         print(f"✅ KuCoin Trading Bot initialisiert - Sandbox: {sandbox}")
         
-    def test_api_connection(self):
-        """Testet die API-Verbindung"""
-        self.update_bot_activity("🔍 Teste API-Verbindung...")
-        if self.api.test_connection():
-            self.update_bot_activity("✅ API-Verbindung erfolgreich!")
-            return True
-        else:
-            self.update_bot_activity("❌ API-Verbindung fehlgeschlagen!")
-            return False
+    def load_trade_history(self):
+        """Lädt Trade-History aus dem Tax-Logger"""
+        try:
+            recent_trades = self.tax_logger.get_recent_trades(1000)  # Letzte 1000 Trades
+            self.trade_history = recent_trades
+            print(f"✅ {len(self.trade_history)} Trades aus History geladen")
+        except Exception as e:
+            print(f"❌ Fehler beim Laden der Trade-History: {e}")
+            self.trade_history = []
         
     def set_gui_reference(self, gui):
         self.gui_reference = gui
@@ -68,11 +58,13 @@ class KuCoinTradingBot:
         self.headless_reference = headless
         
     def update_bot_activity(self, message):
-        """Aktualisiert Bot-Aktivität (für GUI und Headless)"""
+        """Aktualisiert Bot-Aktivität ohne übermäßige Debug-Ausgaben"""
         timestamp = datetime.now().strftime('%H:%M:%S')
         log_entry = f"[{timestamp}] {message}"
-        self.bot_activity_log.append(log_entry)
-        print(log_entry)
+        
+        # Nur wichtige Nachrichten in der Konsole ausgeben
+        if any(keyword in message for keyword in ['✅', '❌', '⚡', '📊', '🎯']):
+            print(log_entry)
         
         if self.gui_reference:
             self.gui_reference.update_bot_activity(log_entry)
@@ -87,17 +79,18 @@ class KuCoinTradingBot:
     def get_available_pairs(self):
         """Gibt verfügbare Trading-Pairs von KuCoin zurück"""
         try:
+            if not self.api.symbols_info:
+                self.api.get_symbols_info()
             symbols_info = self.api.symbols_info
             usdt_pairs = [symbol for symbol in symbols_info.keys() if symbol.endswith('-USDT')]
             return sorted(usdt_pairs)
         except Exception as e:
-            self.update_bot_activity(f"❌ Fehler beim Laden der verfügbaren Pairs: {e}")
-            return ['BTC-USDT', 'ETH-USDT', 'ADA-USDT', 'DOT-USDT', 'LINK-USDT']
+            return  ['BTC-USDT', 'ETH-USDT', 'XRP-USDT', 'DOGE-USDT', 'SOL-USDT', 'SHIB-USDT', 'BNB-USDT']
     
     def calculate_rsi(self, prices, period=14):
         """Berechnet RSI ohne pandas"""
         if len(prices) < period + 1:
-            return 50  # Neutraler Wert bei unzureichenden Daten
+            return 50
             
         gains = []
         losses = []
@@ -114,7 +107,6 @@ class KuCoinTradingBot:
         if len(gains) < period:
             return 50
             
-        # Verwende die letzten 'period' Werte
         avg_gain = sum(gains[-period:]) / period
         avg_loss = sum(losses[-period:]) / period
         
@@ -135,22 +127,15 @@ class KuCoinTradingBot:
     def get_historical_data(self, symbol, interval='15min', limit=100):
         """Holt echte historische Daten von KuCoin"""
         try:
-            self.update_bot_activity(f"📊 Hole historische Daten für {symbol}...")
-            
-            # Verwende den echten API Client
             klines_data = self.api.get_klines(symbol, interval)
             
             if klines_data:
-                # Extrahiere nur die Schlusskurse
                 prices = [kline['close'] for kline in klines_data]
-                self.update_bot_activity(f"✅ {len(prices)} historische Preise für {symbol} erhalten")
-                return prices[-limit:]  # Rückgabe der letzten 'limit' Preise
+                return prices[-limit:]
             else:
-                self.update_bot_activity(f"❌ Keine historischen Daten für {symbol} verfügbar")
                 return None
                 
-        except Exception as e:
-            self.update_bot_activity(f"❌ Fehler bei historischen Daten für {symbol}: {e}")
+        except Exception:
             return None
     
     def analyze_crypto(self, symbol):
@@ -160,19 +145,16 @@ class KuCoinTradingBot:
             if not current_price:
                 return None
                 
-            # Hole historische Daten
             historical_data = self.get_historical_data(symbol, self.backtest_interval, 50)
             if not historical_data:
                 return None
                 
-            # Berechne technische Indikatoren
             rsi = self.calculate_rsi(historical_data)
             ma_short = self.calculate_moving_average(historical_data, 10)
             ma_long = self.calculate_moving_average(historical_data, 20)
             
-            # Generiere Signale basierend auf Indikatoren
             signals = []
-            confidence = 50  # Basis Confidence
+            confidence = 50
             
             # RSI Signale
             if rsi < self.rsi_oversold:
@@ -223,8 +205,7 @@ class KuCoinTradingBot:
                 'total_return': ((current_price - historical_data[0]) / historical_data[0]) * 100 if historical_data else 0
             }
             
-        except Exception as e:
-            self.update_bot_activity(f"❌ Analyse Fehler für {symbol}: {e}")
+        except Exception:
             return None
     
     def quick_signal_check(self):
@@ -237,11 +218,8 @@ class KuCoinTradingBot:
                 analysis = self.analyze_crypto(crypto)
                 if analysis:
                     results[crypto] = analysis
-                    signal_emoji = "🟢" if "BUY" in analysis['current_signal'] else "🔴" if "SELL" in analysis['current_signal'] else "🟡"
-                    self.update_bot_activity(f"{signal_emoji} {crypto}: {analysis['current_signal']} ({analysis['confidence']}%)")
                     
             self.current_recommendations = results
-            self.update_bot_activity("✅ Schnelle Signalprüfung abgeschlossen")
             return results
             
         except Exception as e:
@@ -253,7 +231,6 @@ class KuCoinTradingBot:
         try:
             self.update_bot_activity("📊 Starte Backtest...")
             
-            # Verwende übergebene Pairs oder Standard-Pairs
             cryptos = pairs if pairs else self.trading_pairs
             
             results = {}
@@ -261,13 +238,11 @@ class KuCoinTradingBot:
                 analysis = self.analyze_crypto(crypto)
                 if analysis:
                     results[crypto] = analysis
-                    self.update_bot_activity(f"📈 {crypto} analysiert: {analysis['current_signal']}")
                     
             self.current_recommendations = results
             self.last_update = datetime.now()
             self.next_scheduled_update = self.last_update + timedelta(minutes=15)
             
-            # Automatische Trade-Ausführung wenn gewünscht
             if execute_trades and self.auto_trading:
                 self.execute_trades_based_on_signals(results)
             
@@ -281,36 +256,26 @@ class KuCoinTradingBot:
     def execute_trades_based_on_signals(self, results):
         """Führt automatisch Trades basierend auf Backtest-Ergebnissen aus"""
         if not self.auto_trading:
-            self.update_bot_activity("⚠️ Auto-Trading ist nicht aktiviert - keine Trades werden ausgeführt")
             return
             
         if not results:
-            self.update_bot_activity("⚠️ Keine Ergebnisse für Trade-Ausführung verfügbar")
             return
             
         executed_trades = 0
         for crypto, data in results.items():
-            # Nur BUY-Signale mit hoher Confidence ausführen
             if "BUY" in data['current_signal'] and data['confidence'] >= 70:
-                self.update_bot_activity(f"🎯 Versuche Trade für {crypto}: {data['current_signal']} (Confidence: {data['confidence']}%)")
-                
                 success = self.execute_trade(crypto, data['current_signal'])
                 if success:
                     executed_trades += 1
-                    self.update_bot_activity(f"✅ Trade für {crypto} erfolgreich ausgeführt")
-                else:
-                    self.update_bot_activity(f"❌ Trade für {crypto} fehlgeschlagen")
         
         self.update_bot_activity(f"📊 Insgesamt {executed_trades} Trades ausgeführt")
     
     def get_balance_summary(self):
         """Gibt echte Kontostand-Übersicht zurück"""
         try:
-            # Verwende echte API für Kontostände
             balances = self.api.get_account_balances_detailed()
             
             if not balances:
-                self.update_bot_activity("❌ Keine Kontostände verfügbar")
                 return None
             
             assets = []
@@ -326,18 +291,17 @@ class KuCoinTradingBot:
                     price = self.get_current_price(symbol)
                     value_usd = balance['available'] * price if price else 0
                 
-                if value_usd > 0.01:  # Nur Assets mit signifikantem Wert anzeigen
+                if value_usd > 0.01:
                     assets.append({
                         'currency': currency,
                         'balance': balance['balance'],
                         'available': balance['available'],
                         'price': price,
                         'value_usd': value_usd,
-                        'percentage': 0  # Wird später berechnet
+                        'percentage': 0
                     })
                     total_value += value_usd
             
-            # Berechne Prozentsätze
             for asset in assets:
                 asset['percentage'] = (asset['value_usd'] / total_value) * 100 if total_value > 0 else 0
             
@@ -347,38 +311,37 @@ class KuCoinTradingBot:
                 'last_updated': datetime.now()
             }
             
-        except Exception as e:
-            self.update_bot_activity(f"❌ Balance Fehler: {e}")
+        except Exception:
             return None
     
     def get_current_price(self, symbol):
         """Holt aktuellen Preis von der echten API"""
         try:
+            # Cache für 10 Sekunden
+            if symbol in self.price_cache:
+                cached_price, timestamp = self.price_cache[symbol]
+                if (datetime.now() - timestamp).total_seconds() < 10:
+                    return cached_price
+            
             price = self.api.get_ticker(symbol)
             if price:
+                self.price_cache[symbol] = (price, datetime.now())
                 return price
             else:
                 return None
-        except Exception as e:
-            self.update_bot_activity(f"❌ Preis Fehler für {symbol}: {e}")
+        except Exception:
             return None
     
     def update_caches(self):
         """Aktualisiert alle Caches mit echten Daten"""
         try:
-            self.update_bot_activity("🔄 Aktualisiere alle Caches...")
-            
-            # Aktualisiere Preise für alle Trading-Pairs
             for symbol in self.trading_pairs:
                 self.get_current_price(symbol)
             
-            # Aktualisiere Kontostände
             self.balance_cache = self.get_balance_summary()
             
-            self.update_bot_activity("✅ Alle Caches aktualisiert")
-            
-        except Exception as e:
-            self.update_bot_activity(f"❌ Cache Update Fehler: {e}")
+        except Exception:
+            pass
     
     def calculate_portfolio_value(self):
         """Berechnet Gesamtwert des Portfolios"""
@@ -395,13 +358,10 @@ class KuCoinTradingBot:
             self.rsi_oversold = rsi_oversold
         if rsi_overbought is not None:
             self.rsi_overbought = rsi_overbought
-            
-        self.update_bot_activity("⚙️ Trading-Einstellungen aktualisiert")
     
     def set_interval(self, interval):
         """Setzt Analyse-Interval"""
         self.backtest_interval = interval
-        self.update_bot_activity(f"🕐 Analyse-Interval geändert: {interval}")
     
     def check_stop_loss(self):
         """Prüft Stop-Loss für aktive Trades"""
@@ -425,12 +385,10 @@ class KuCoinTradingBot:
             trade = self.active_trades.pop(symbol)
             current_price = self.get_current_price(symbol)
             if not current_price:
-                self.update_bot_activity(f"❌ Kann Preis für {symbol} nicht abrufen")
                 return
                     
             profit_loss = (current_price - trade['buy_price']) * trade['amount']
                 
-            # Echten Trade über API ausführen
             if self.auto_trading:
                 order_result = self.api.place_order(
                     symbol=symbol,
@@ -441,27 +399,27 @@ class KuCoinTradingBot:
                     
                 if order_result:
                     order_id = order_result.get('orderId', 'unknown')
-                    self.update_bot_activity(f"✅ Verkauf order platziert für {symbol}")
                 else:
                     order_id = 'failed'
-                    self.update_bot_activity(f"❌ Verkauf order fehlgeschlagen für {symbol}")
             else:
                 order_id = 'simulated'
             
-            # KORRIGIERT: Logge den Trade mit Dictionary
+            # Logge den Trade
             trade_data = {
                 'symbol': symbol,
                 'side': 'SELL',
                 'amount': trade['amount'],
                 'price': current_price,
-                'reason': reason
+                'profit_loss': profit_loss,
+                'profit_loss_percent': (profit_loss / (trade['buy_price'] * trade['amount'])) * 100,
+                'reason': reason,
+                'order_id': order_id,
+                'portfolio_value': self.calculate_portfolio_value()
             }
-            closed_trade = self.tax_logger.log_trade(trade_data)
+            self.tax_logger.log_trade(trade_data)
             
-            # Füge Profit/Loss Informationen hinzu
-            closed_trade['profit_loss'] = profit_loss
-            closed_trade['profit_loss_percent'] = (profit_loss / (trade['buy_price'] * trade['amount'])) * 100
-            closed_trade['order_id'] = order_id
+            # Aktualisiere Trade-History
+            self.load_trade_history()
                 
             self.update_bot_activity(f"🔒 Trade geschlossen: {symbol} - {reason} - P/L: ${profit_loss:.2f}")
     
@@ -471,32 +429,25 @@ class KuCoinTradingBot:
             return False
                 
         if symbol in self.active_trades:
-            self.update_bot_activity(f"⚠️ Trade bereits aktiv für {symbol}")
             return False
                 
         if len(self.active_trades) >= self.max_open_trades:
-            self.update_bot_activity("⚠️ Maximale Anzahl offener Trades erreicht")
             return False
                 
         current_price = self.get_current_price(symbol)
         if not current_price:
-            self.update_bot_activity(f"❌ Kann Preis für {symbol} nicht abrufen")
             return False
             
-        # Berechne Trade-Größe basierend auf Portfolio
         portfolio_value = self.calculate_portfolio_value()
         if portfolio_value <= 0:
-            self.update_bot_activity("❌ Kein Portfolio-Wert verfügbar")
             return False
                 
         trade_value = portfolio_value * (self.trade_size_percent / 100)
         trade_amount = trade_value / current_price
             
-        # Validiere und korrigiere Trade-Größe
         valid_amount = self.api.calculate_valid_size(symbol, trade_amount)
             
         if "BUY" in signal:
-            # Echten Trade über API ausführen
             order_result = self.api.place_order(
                 symbol=symbol,
                 side='buy',
@@ -512,46 +463,63 @@ class KuCoinTradingBot:
                     'order_id': order_result.get('orderId', 'unknown')
                 }
                     
-                # KORRIGIERT: Logge den Trade mit Dictionary
                 trade_data = {
                     'symbol': symbol,
                     'side': 'BUY',
                     'amount': valid_amount,
                     'price': current_price,
-                    'reason': f"Auto-Trade: {signal}"
+                    'profit_loss': 0,
+                    'profit_loss_percent': 0,
+                    'reason': f"Auto-Trade: {signal}",
+                    'order_id': order_result.get('orderId', 'unknown'),
+                    'portfolio_value': self.calculate_portfolio_value()
                 }
                 self.tax_logger.log_trade(trade_data)
+                
+                # Aktualisiere Trade-History
+                self.load_trade_history()
                 
                 self.last_trade_time = datetime.now()
                 self.update_bot_activity(f"🟢 Trade eröffnet: {symbol} - {valid_amount:.4f} @ ${current_price:.2f}")
                 return True
             else:
-                self.update_bot_activity(f"❌ Trade fehlgeschlagen für {symbol}")
                 return False
         return False
-
-# Hauptprogramm
-if __name__ == "__main__":
-    # Demo-Konfiguration - ersetzen Sie diese mit Ihren echten API-Daten
-    API_KEY = "demo_key"
-    API_SECRET = "demo_secret" 
-    API_PASSPHRASE = "demo_passphrase"
     
-    bot = KuCoinTradingBot(API_KEY, API_SECRET, API_PASSPHRASE)
-    
-    print("🤖 KuCoin Trading Bot gestartet")
-    print("📊 Führe ersten Backtest durch...")
-    
-    # Initialisiere Caches
-    bot.update_caches()
-    
-    # Führe Backtest durch
-    results = bot.run_complete_backtest()
-    
-    print(f"\n📈 Analyseergebnisse ({len(results)} Kryptos):")
-    for crypto, data in results.items():
-        signal_emoji = "🟢" if "BUY" in data['current_signal'] else "🔴" if "SELL" in data['current_signal'] else "🟡"
-        print(f"  {signal_emoji} {crypto}: {data['current_signal']} ({data['confidence']}%)")
-    
-    print(f"\n💼 Portfolio Wert: ${bot.calculate_portfolio_value():.2f}")
-    print("✅ Bot ist bereit für den Betrieb!")
+    def get_trade_history_for_gui(self, limit=50):
+        """Gibt Trade-History für die GUI zurück - VOLLSTÄNDIG KORRIGIERT"""
+        try:
+            print(f"🔍 Lade Trade-History für GUI... ({len(self.trade_history)} Trades verfügbar)")
+            
+            if not self.trade_history:
+                print("ℹ️  Keine Trade-History verfügbar")
+                return []
+            
+            # Verwende die interne History und konvertiere sie für die GUI
+            gui_trades = []
+            
+            for trade in self.trade_history[-limit:]:  # Neueste zuerst
+                try:
+                    # Erstelle ein GUI-kompatibles Trade-Objekt
+                    gui_trade = {
+                        'timestamp': trade.get('timestamp', 'Unbekannt'),
+                        'symbol': trade.get('symbol', 'Unknown'),
+                        'side': trade.get('side', 'UNKNOWN'),
+                        'price': float(trade.get('price', 0)),
+                        'amount': float(trade.get('amount', 0)),
+                        'profit_loss': float(trade.get('profit_loss', 0)),
+                        'profit_loss_percent': float(trade.get('profit_loss_percent', 0)),
+                        'reason': trade.get('reason', '')
+                    }
+                    gui_trades.append(gui_trade)
+                    
+                except Exception as e:
+                    print(f"⚠️  Fehler beim Konvertieren des Trades: {e}")
+                    continue
+            
+            print(f"✅ {len(gui_trades)} Trades für GUI vorbereitet")
+            return gui_trades
+            
+        except Exception as e:
+            print(f"❌ Fehler in get_trade_history_for_gui: {e}")
+            return []

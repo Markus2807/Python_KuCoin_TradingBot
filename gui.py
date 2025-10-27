@@ -36,6 +36,13 @@ class TradingBotGUI:
             print("✅ Lade kleine GUI für Low-Res Display")
         
         self.start_auto_updates()
+
+        # INITIALE AKTUALISIERUNGEN - WICHTIG
+        print("🔄 Starte initiale GUI-Aktualisierungen...")
+        self.root.after(1000, self.update_balance_display)  # Verzögert starten
+        self.root.after(2000, self.update_trade_history)    # Trade-History nach 2 Sekunden
+        self.root.after(3000, self.update_tax_log)  # Finanzamt-Log nach 3 Sekunden
+        self.root.after(3000, self.update_recommendations)  # Empfehlungen nach 3 Sekunden
         
     def setup_large_gui(self):
         """Große GUI für High-Res Displays (ab 1280x720)"""
@@ -141,7 +148,7 @@ class TradingBotGUI:
         self.update_balance_display()
         
     def setup_control_panel_large(self, parent):
-        """Control Panel für große Displays"""
+        """Control Panel für große Displays - ERWEITERT"""
         control_frame = ttk.LabelFrame(parent, text="Bot Steuerung", padding=10)
         control_frame.pack(fill=tk.X, pady=5)
         
@@ -182,18 +189,15 @@ class TradingBotGUI:
         button_frame.pack(fill=tk.X, pady=5)
         
         ttk.Button(button_frame, text="Einstellungen Speichern", 
-                  command=self.save_settings).pack(side=tk.LEFT, padx=2)
+                command=self.save_settings).pack(side=tk.LEFT, padx=2)
         ttk.Button(button_frame, text="Schnell-Check", 
-                  command=self.quick_signal_check).pack(side=tk.LEFT, padx=2)
+                command=self.quick_signal_check).pack(side=tk.LEFT, padx=2)
         ttk.Button(button_frame, text="Backtest Starten", 
-                  command=self.start_backtest).pack(side=tk.LEFT, padx=2)
+                command=self.start_backtest).pack(side=tk.LEFT, padx=2)
+        ttk.Button(button_frame, text="History Aktualisieren", 
+                command=self.force_history_update).pack(side=tk.LEFT, padx=2)  # NEU
         ttk.Button(button_frame, text="Alle Trades Schliessen", 
-                  command=self.close_all_trades).pack(side=tk.LEFT, padx=2)
-                # In setup_control_panel Methode:
-        ttk.Button(button_frame, text="Signale & Trades", 
-                command=self.execute_signals_and_trades).pack(side=tk.LEFT, padx=2)
-        ttk.Button(button_frame, text="Sofort Trades", 
-          command=self.quick_trade_execution).pack(side=tk.LEFT, padx=2)
+                command=self.close_all_trades).pack(side=tk.LEFT, padx=2)
         
     def setup_recommendations_panel_large(self, parent):
         """Recommendations Panel für große Displays"""
@@ -1158,36 +1162,40 @@ class TradingBotGUI:
         print(f"Status: {message}")
 
     def start_auto_updates(self):
-        """Startet automatische Updates"""
+        """Startet automatische Updates - ERWEITERT"""
         def update_loop():
             while True:
                 try:
+                    # Führe GUI-Updates im Hauptthread aus
                     self.root.after(0, self.update_balance_display)
                     self.root.after(0, self.update_recommendations)
                     self.root.after(0, self.update_active_trades)
+                    self.root.after(0, self.update_trade_history)
+                    self.root.after(0, self.update_tax_log)  # WICHTIG: Finanzamt-Log updaten
                     if hasattr(self, 'bot_status_vars'):
                         self.root.after(0, self.update_bot_status)
                 except Exception as e:
                     print(f"Auto-update error: {e}")
                     
-                time.sleep(30)
-                
+                time.sleep(30)  # Alle 30 Sekunden updaten
+                    
         threading.Thread(target=update_loop, daemon=True).start()
+        print("✅ Auto-Updates gestartet (inkl. Finanzamt-Log)")
 
     # Tax und Debug Methoden
     def generate_tax_report(self):
-        """Generiert einen Steuerreport"""
+        """Generiert einen detaillierten Steuerreport - KORRIGIERT"""
         report_window = tk.Toplevel(self.root)
         report_window.title("Steuerreport Generieren")
-        report_window.geometry("300x150")
+        report_window.geometry("400x200")
         
         ttk.Label(report_window, text="Startdatum (YYYY-MM-DD):").pack(pady=5)
-        start_entry = ttk.Entry(report_window)
+        start_entry = ttk.Entry(report_window, width=20)
         start_entry.pack(pady=5)
-        start_entry.insert(0, datetime.now().strftime('%Y-%m-01'))
+        start_entry.insert(0, (datetime.now().replace(day=1)).strftime('%Y-%m-%d'))  # Erster des Monats
         
         ttk.Label(report_window, text="Enddatum (YYYY-MM-DD):").pack(pady=5)
-        end_entry = ttk.Entry(report_window)
+        end_entry = ttk.Entry(report_window, width=20)
         end_entry.pack(pady=5)
         end_entry.insert(0, datetime.now().strftime('%Y-%m-%d'))
         
@@ -1195,20 +1203,41 @@ class TradingBotGUI:
             start_date = start_entry.get()
             end_date = end_entry.get()
             
-            report = self.bot.tax_logger.generate_tax_report(start_date, end_date)
-            if report:
-                report_text = f"""Steuerreport für {report['period']}
-                
-Gesamte Trades: {report['total_trades']}
-Handelsvolumen: ${report['total_volume']:.2f}
-Gesamtgebühren: ${report['total_fees']:.2f}
-Gesamtgewinn: ${report['total_profit']:.2f}
-Gesamtverlust: ${report['total_loss']:.2f}
-Netto Gewinn: ${report['net_profit']:.2f}
-                """
-                messagebox.showinfo("Steuerreport", report_text)
-            else:
-                messagebox.showerror("Fehler", "Konnte Report nicht generieren")
+            try:
+                report = self.bot.tax_logger.generate_tax_report(start_date, end_date)
+                if report:
+                    # Detaillierter Report
+                    report_text = f"""📊 Steuerreport für {report['period']}
+                    
+    📈 Handelsaktivität:
+    • Gesamte Trades: {report['total_trades']}
+    • Kauf-Trades: {report['buy_trades']}
+    • Verkauf-Trades: {report['sell_trades']}
+
+    💰 Finanzielle Übersicht:
+    • Handelsvolumen: ${report['total_volume']:,.2f}
+    • Gesamtgebühren: ${report['total_fees']:,.2f}
+    • Gesamtgewinn: ${report['total_profit']:,.2f}
+    • Gesamtverlust: ${report['total_loss']:,.2f}
+    • Netto Gewinn/Verlust: ${report['net_profit']:+,.2f}
+
+    📊 Performance:
+    • Gewinnrate: {report.get('win_rate', 0):.1f}%
+    • Durchschn. Trade-Wert: ${report.get('average_trade_value', 0):.2f}
+    """
+                    
+                    # Füge Symbol-spezifische Informationen hinzu
+                    if report.get('trades_by_symbol'):
+                        report_text += "\n📋 Trades nach Symbol:\n"
+                        for symbol, data in list(report['trades_by_symbol'].items())[:10]:  # Zeige max. 10 Symbole
+                            report_text += f"• {symbol}: {data['trades']} Trades, ${data['profit_loss']:+.2f}\n"
+                    
+                    messagebox.showinfo("Steuerreport", report_text)
+                else:
+                    messagebox.showerror("Fehler", "Konnte Steuerreport nicht generieren")
+                    
+            except Exception as e:
+                messagebox.showerror("Fehler", f"Fehler beim Generieren: {e}")
                 
             report_window.destroy()
         
@@ -1233,51 +1262,124 @@ Netto Gewinn: ${report['net_profit']:.2f}
         self.update_tax_log()
 
     def update_tax_log(self):
-        """Aktualisiert die Steuerlog-Anzeige"""
+        """Aktualisiert die Finanzamt-Log Anzeige - KORRIGIERT"""
         if not hasattr(self, 'tax_tree'):
             return
             
-        for item in self.tax_tree.get_children():
-            self.tax_tree.delete(item)
+        try:
+            # Lösche vorhandene Einträge
+            for item in self.tax_tree.get_children():
+                self.tax_tree.delete(item)
             
-        recent_trades = self.bot.tax_logger.get_recent_trades(100)
-        
-        for trade in recent_trades:
-            total_value = trade['amount'] * trade['price']
-            fees = total_value * 0.001
+            print("🔄 Aktualisiere Finanzamt-Log...")
             
-            tags = ()
-            if trade['profit_loss'] > 0:
-                tags = ('profit',)
-            elif trade['profit_loss'] < 0:
-                tags = ('loss',)
-            else:
-                tags = ('neutral',)
+            # Hole aktuelle Trades vom Tax-Logger
+            recent_trades = self.bot.tax_logger.get_recent_trades(100)
+            
+            if not recent_trades:
+                print("ℹ️  Keine Trades im Finanzamt-Log verfügbar")
+                self.tax_tree.insert('', tk.END, values=(
+                    "Keine", "Trades", "verfügbar", "-", "-", "-", "-", "-", "-"
+                ))
+                return
                 
-            self.tax_tree.insert('', tk.END, values=(
-                trade['timestamp'],
-                trade['side'],
-                trade['symbol'],
-                f"{trade['amount']:.6f}",
-                f"${trade['price']:.6f}",
-                f"${total_value:.2f}",
-                f"${fees:.2f}",
-                f"${trade['profit_loss']:.2f}",
-                trade['reason']
-            ), tags=tags)
+            print(f"📋 Zeige {len(recent_trades)} Trades im Finanzamt-Tab an")
             
-        if hasattr(self, 'tax_tree'):
+            # Zeige Trades in umgekehrter Reihenfolge (älteste zuerst)
+            for trade in reversed(recent_trades):
+                try:
+                    timestamp = trade.get('timestamp', 'Unbekannt')
+                    side = trade.get('side', 'UNKNOWN')
+                    symbol = trade.get('symbol', 'Unknown')
+                    amount = trade.get('amount', 0)
+                    price = trade.get('price', 0)
+                    total_value = trade.get('total_value', 0)
+                    fees = trade.get('fees', 0)
+                    profit_loss = trade.get('profit_loss', 0)
+                    reason = trade.get('reason', '')
+                    
+                    # Debug-Ausgabe für ersten Trade
+                    if trade == recent_trades[0]:
+                        print(f"🔍 Erster Finanzamt-Trade: {timestamp} - {symbol} - {side} - ${profit_loss:.2f}")
+                    
+                    # Berechne Gesamtbetrag falls nicht vorhanden
+                    if total_value == 0 and amount > 0 and price > 0:
+                        total_value = amount * price
+                    
+                    # Berechne Gebühren falls nicht vorhanden
+                    if fees == 0 and total_value > 0:
+                        fees = total_value * 0.001
+                    
+                    # Bestimme Tags für Farbgebung
+                    tags = ()
+                    if profit_loss > 0:
+                        tags = ('profit',)
+                    elif profit_loss < 0:
+                        tags = ('loss',)
+                    elif side == 'BUY':
+                        tags = ('buy',)
+                    else:
+                        tags = ('neutral',)
+                    
+                    # Füge Trade zur Treeview hinzu
+                    self.tax_tree.insert('', tk.END, values=(
+                        str(timestamp)[:16],  # Kürze auf 16 Zeichen
+                        str(side),
+                        str(symbol),
+                        f"{float(amount):.6f}",
+                        f"${float(price):.6f}",
+                        f"${float(total_value):.2f}",
+                        f"${float(fees):.2f}",
+                        f"${float(profit_loss):+.2f}",
+                        str(reason)[:30]  # Kürze Grund auf 30 Zeichen
+                    ), tags=tags)
+                    
+                except Exception as e:
+                    print(f"⚠️  Fehler beim Anzeigen des Finanzamt-Trades: {e}")
+                    continue
+                    
+            # Konfiguriere Tags für Farben
+            self.tax_tree.tag_configure('buy', background='#e8f4fd')
             self.tax_tree.tag_configure('profit', background='#d4edda')
             self.tax_tree.tag_configure('loss', background='#f8d7da')
             self.tax_tree.tag_configure('neutral', background='#fff3cd')
-        
-        portfolio_value = self.bot.calculate_portfolio_value()
-        if hasattr(self, 'portfolio_var'):
-            self.portfolio_var.set(f"Portfolio Wert: ${portfolio_value:.2f}")
-        
-        total_profit = sum(trade['profit_loss'] for trade in recent_trades if trade['side'] == 'SELL')
-        if hasattr(self, 'total_profit_var'):
-            self.total_profit_var.set(f"Gesamtgewinn: ${total_profit:.2f}")
+            
+            # Aktualisiere Portfolio-Informationen
+            self.update_portfolio_info(recent_trades)
+            
+            print("✅ Finanzamt-Log erfolgreich aktualisiert")
+            
+        except Exception as e:
+            print(f"❌ Fehler beim Aktualisieren des Finanzamt-Logs: {e}")
+
+    def update_portfolio_info(self, recent_trades=None):
+        """Aktualisiert Portfolio-Informationen - KORRIGIERT"""
+        try:
+            if recent_trades is None:
+                recent_trades = self.bot.tax_logger.get_recent_trades(1000)  # Alle Trades
+            
+            # Berechne Portfolio-Wert
+            portfolio_value = self.bot.calculate_portfolio_value()
+            
+            # Berechne Gesamtgewinn (nur aus verkauften Trades)
+            total_profit = 0
+            for trade in recent_trades:
+                if trade.get('side') == 'SELL':
+                    profit_loss = trade.get('profit_loss', 0)
+                    if profit_loss is not None:
+                        total_profit += profit_loss
+            
+            # Aktualisiere Anzeige
+            if hasattr(self, 'portfolio_var'):
+                self.portfolio_var.set(f"Portfolio Wert: ${portfolio_value:,.2f}")
+            
+            if hasattr(self, 'total_profit_var'):
+                self.total_profit_var.set(f"Gesamtgewinn: ${total_profit:+.2f}")
+                
+            print(f"💰 Portfolio: ${portfolio_value:,.2f}, Gewinn: ${total_profit:+.2f}")
+            
+        except Exception as e:
+            print(f"❌ Fehler beim Aktualisieren der Portfolio-Info: {e}")
 
     def debug_status(self):
         """Zeigt Debug-Informationen an"""
@@ -1351,3 +1453,106 @@ Display Auflösung: {self.screen_width}x{self.screen_height}
                 self.update_status("Keine Trades ausgeführt - Prüfe Auto-Trading Einstellung")
         
         threading.Thread(target=run, daemon=True).start()
+
+    def update_trade_history(self):
+        """Aktualisiert die Trade-History Anzeige - VOLLSTÄNDIG KORRIGIERT"""
+        if not hasattr(self, 'history_tree'):
+            print("❌ history_tree nicht verfügbar")
+            return
+            
+        try:
+            # Lösche vorhandene Einträge
+            for item in self.history_tree.get_children():
+                self.history_tree.delete(item)
+            
+            print("🔄 Aktualisiere Trade-History in GUI...")
+            
+            # Hole Trade-History vom Bot
+            trade_history = self.bot.get_trade_history_for_gui(50)
+            
+            if not trade_history:
+                print("ℹ️  Keine Trades für GUI verfügbar")
+                self.history_tree.insert('', tk.END, values=(
+                    "Keine", "Trades", "verfügbar", "-", "-", "-", "-", "-"
+                ))
+                return
+                
+            print(f"📋 Zeige {len(trade_history)} Trades in GUI an")
+            
+            # Zeige Trades in umgekehrter Reihenfolge (älteste zuerst)
+            for trade in reversed(trade_history):
+                try:
+                    timestamp = trade.get('timestamp', 'Unbekannt')
+                    symbol = trade.get('symbol', 'Unknown')
+                    side = trade.get('side', 'UNKNOWN')
+                    price = trade.get('price', 0)
+                    amount = trade.get('amount', 0)
+                    profit_loss = trade.get('profit_loss', 0)
+                    profit_loss_percent = trade.get('profit_loss_percent', 0)
+                    reason = trade.get('reason', '')
+                    
+                    # Debug-Ausgabe für ersten Trade
+                    if trade == trade_history[0]:
+                        print(f"🔍 Erster Trade: {timestamp} - {symbol} - {side} - ${price}")
+                    
+                    # Bestimme Tags für Farbgebung
+                    tags = ()
+                    if side == 'BUY':
+                        tags = ('buy',)
+                    elif side == 'SELL':
+                        if profit_loss > 0:
+                            tags = ('profit',)
+                        else:
+                            tags = ('loss',)
+                    else:
+                        tags = ('neutral',)
+                    
+                    # Füge Trade zur Treeview hinzu
+                    self.history_tree.insert('', tk.END, values=(
+                        str(timestamp)[:16],  # Kürze auf 16 Zeichen
+                        str(symbol),
+                        str(side),
+                        f"${float(price):.6f}",
+                        f"{float(amount):.6f}",
+                        f"{float(profit_loss_percent):+.2f}%",
+                        f"${float(profit_loss):+.2f}",
+                        str(reason)[:30]  # Kürze Grund auf 30 Zeichen
+                    ), tags=tags)
+                    
+                except Exception as e:
+                    print(f"⚠️  Fehler beim Anzeigen des Trades: {e}")
+                    continue
+                    
+            # Konfiguriere Tags für Farben
+            self.history_tree.tag_configure('buy', background='#d4edda')
+            self.history_tree.tag_configure('profit', background='#e8f5e8')
+            self.history_tree.tag_configure('loss', background='#f8d7da')
+            self.history_tree.tag_configure('neutral', background='#fff3cd')
+            
+            print("✅ Trade-History erfolgreich aktualisiert")
+            
+        except Exception as e:
+            print(f"❌ Fehler beim Aktualisieren der Trade-History: {e}")
+
+    def force_history_update(self):
+        """Erzwingt eine Aktualisierung der Trade-History"""
+        print("🔄 Erzwinge Trade-History Update...")
+        
+        def update():
+            try:
+                # Lade History neu vom Bot
+                self.bot.load_trade_history()
+                
+                # Aktualisiere GUI
+                self.root.after(0, self.update_trade_history)
+                self.root.after(0, self.update_tax_log)
+                
+                self.update_status("Trade-History aktualisiert")
+                print("✅ Trade-History erzwungenes Update abgeschlossen")
+                
+            except Exception as e:
+                error_msg = f"Fehler beim History-Update: {e}"
+                print(f"❌ {error_msg}")
+                self.root.after(0, lambda: self.update_status(error_msg))
+        
+        threading.Thread(target=update, daemon=True).start()

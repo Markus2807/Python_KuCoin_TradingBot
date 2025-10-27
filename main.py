@@ -75,6 +75,9 @@ def main():
             api_passphrase=API_PASSPHRASE,
             sandbox=SANDBOX
         )
+
+        # Debug: Prüfe ob Trades geladen wurden
+        print(f"📊 Bot initialisiert mit {len(bot.trade_history)} Trades in History")
         
         print("🎨 Starte GUI...")
         gui = TradingBotGUI(bot)
