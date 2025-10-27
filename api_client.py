@@ -6,7 +6,7 @@ import json
 import requests
 from urllib.parse import urlencode
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 
 class KuCoinAPI:
     def __init__(self, api_key='', api_secret='', api_passphrase='', sandbox=False):
@@ -144,7 +144,9 @@ class KuCoinAPI:
     
     def _get_headers(self, method, endpoint, body=''):
         try:
-            timestamp = str(int(time.time() * 1000))
+            # Verwende KuCoin Server Zeit für bessere Synchronisation
+            timestamp = str(self._get_kucoin_timestamp())
+            
             signature = self._generate_signature(timestamp, method, endpoint, body)
             
             if not signature:
@@ -171,7 +173,7 @@ class KuCoinAPI:
             print(f"❌ Header Fehler: {e}")
             return None
     
-    def _make_request(self, method, endpoint, body='', params=None):
+    def _make_request(self, method, endpoint, body='', params=None, retry_count=0):
         """Macht API-Request mit Rate-Limiting und Logging"""
         self.request_count += 1
         self.last_request_time = datetime.now()
@@ -190,6 +192,8 @@ class KuCoinAPI:
         url = f"{self.base_url}{full_endpoint}"
         
         try:
+            print(f"🌐 API Request: {method} {full_endpoint}")
+            
             if method == 'GET':
                 response = requests.get(url, headers=headers, timeout=30)
             elif method == 'POST':
@@ -197,9 +201,29 @@ class KuCoinAPI:
             else:
                 return None
                 
+            # Debug: Zeige Response Status
+            print(f"📡 Response Status: {response.status_code}")
+            
             data = response.json()
+            
+            # Behandle spezifische Fehler
+            if response.status_code == 400 and data.get('code') == '400003':
+                print("❌ Invalid Timestamp - Versuche Zeit-Synchronisation...")
+                
+                # Retry mit neuer Zeit
+                if retry_count < 3:
+                    print(f"🔄 Retry {retry_count + 1}/3...")
+                    time.sleep(1)
+                    return self._make_request(method, endpoint, body, params, retry_count + 1)
+            
             return data
             
+        except requests.exceptions.Timeout:
+            print("❌ API Request Timeout")
+            return None
+        except requests.exceptions.ConnectionError:
+            print("❌ API Connection Error")
+            return None
         except Exception as e:
             print(f"❌ API Request Fehler: {e}")
             return None
@@ -355,3 +379,23 @@ class KuCoinAPI:
             'request_count': self.request_count,
             'last_request_time': self.last_request_time
         }
+    
+    def _get_kucoin_timestamp(self):
+        """Holt den aktuellen Timestamp von KuCoin Server für Synchronisation"""
+        try:
+            # Hole KuCoin Server Zeit
+            response = requests.get(f"{self.base_url}/api/v1/timestamp", timeout=10)
+            if response.status_code == 200:
+                kucoin_time = int(response.json()['data'])
+                local_time = int(time.time() * 1000)
+                
+                # Berechne Zeitdifferenz
+                time_diff = kucoin_time - local_time
+                print(f"⏰ Zeit-Synchronisation: KuCoin {kucoin_time}, Local {local_time}, Diff: {time_diff}ms")
+                
+                return kucoin_time
+            else:
+                return int(time.time() * 1000)
+        except Exception as e:
+            print(f"⚠️  KuCoin Zeit-Abfrage fehlgeschlagen: {e}")
+            return int(time.time() * 1000)
