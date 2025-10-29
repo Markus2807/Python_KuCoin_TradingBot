@@ -22,10 +22,10 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 try:
     import talib
     TA_LIB_AVAILABLE = True
-    print(" TA-Lib verfügbar - Verwende optimierte technische Indikatoren")
+    print("✅ TA-Lib verfügbar - Verwende optimierte technische Indikatoren")
 except ImportError:
     TA_LIB_AVAILABLE = False
-    print("  TA-Lib nicht verfügbar - Verwende manuelle Berechnungen")
+    print("⚠️  TA-Lib nicht verfügbar - Verwende manuelle Berechnungen")
 
 # =============================================================================
 # ACTIVE TRADES STORAGE
@@ -43,7 +43,7 @@ class ActiveTradesStorage:
         if not os.path.exists(self.storage_file):
             with open(self.storage_file, 'w', encoding='utf-8') as f:
                 json.dump({}, f, indent=2, ensure_ascii=False)
-            print(f" Neue Active-Trades-Storage Datei erstellt: {self.storage_file}")
+            print(f"✅ Neue Active-Trades-Storage Datei erstellt: {self.storage_file}")
     
     def save_active_trades(self, active_trades):
         """Speichert aktive Trades persistent"""
@@ -60,10 +60,10 @@ class ActiveTradesStorage:
             with open(self.storage_file, 'w', encoding='utf-8') as f:
                 json.dump(serializable_trades, f, indent=2, ensure_ascii=False)
             
-            print(f" {len(serializable_trades)} aktive Trades gespeichert")
+            print(f"✅ {len(serializable_trades)} aktive Trades gespeichert")
             return True
         except Exception as e:
-            print(f" Fehler beim Speichern der aktiven Trades: {e}")
+            print(f"❌ Fehler beim Speichern der aktiven Trades: {e}")
             return False
     
     def load_active_trades(self):
@@ -83,10 +83,10 @@ class ActiveTradesStorage:
                     restored_trade['timestamp'] = datetime.fromisoformat(restored_trade['timestamp'])
                 active_trades[symbol] = restored_trade
             
-            print(f" {len(active_trades)} aktive Trades geladen")
+            print(f"✅ {len(active_trades)} aktive Trades geladen")
             return active_trades
         except Exception as e:
-            print(f" Fehler beim Laden der aktiven Trades: {e}")
+            print(f"❌ Fehler beim Laden der aktiven Trades: {e}")
             return {}
     
     def clear_active_trades(self):
@@ -94,10 +94,10 @@ class ActiveTradesStorage:
         try:
             with open(self.storage_file, 'w', encoding='utf-8') as f:
                 json.dump({}, f, indent=2, ensure_ascii=False)
-            print(" Aktive Trades Storage geleert")
+            print("✅ Aktive Trades Storage geleert")
             return True
         except Exception as e:
-            print(f" Fehler beim Leeren der aktiven Trades: {e}")
+            print(f"❌ Fehler beim Leeren der aktiven Trades: {e}")
             return False
 
 # =============================================================================
@@ -151,7 +151,7 @@ class KuCoinAPI:
         # Symbol-Informationen für Order-Validierung
         self.symbols_info = {}
         
-        print(f" KuCoin API initialisiert - Modus: {'SANDBOX' if sandbox else 'LIVE'}")
+        print(f"✅ KuCoin API initialisiert - Modus: {'SANDBOX' if sandbox else 'LIVE'}")
         
     def get_symbols_info(self):
         """Holt Informationen über alle Handels-Paare für Order-Validierung"""
@@ -274,11 +274,11 @@ class KuCoinAPI:
         
         symbol_info = self.symbols_info.get(symbol)
         if symbol_info:
-            print(f" Symbol Info für {symbol}:")
+            print(f"📋 Symbol Info für {symbol}:")
             for key, value in symbol_info.items():
                 print(f"   {key}: {value}")
         else:
-            print(f" Keine Informationen für {symbol} verfügbar")
+            print(f"❌ Keine Informationen für {symbol} verfügbar")
 
     def _generate_signature(self, timestamp, method, endpoint, body=''):
         try:
@@ -676,7 +676,7 @@ class TaxLogger:
         if not os.path.exists(self.json_log_path):
             with open(self.json_log_path, 'w', encoding='utf-8') as f:
                 json.dump([], f, indent=2, ensure_ascii=False)
-            print(" Neue Trading-History JSON Datei erstellt")
+            print("✅ Neue Trading-History JSON Datei erstellt")
     
     def log_trade(self, trade_data):
         """Protokolliert einen Trade für das Finanzamt"""
@@ -718,10 +718,10 @@ class TaxLogger:
                     f"{portfolio_value:.2f}"
                 ])
                 
-            print(f" Trade in CSV geloggt: {trade_data['symbol']} {trade_data['side']}")
+            print(f"✅ Trade in CSV geloggt: {trade_data['symbol']} {trade_data['side']}")
             
         except Exception as e:
-            print(f" Fehler beim CSV-Logging: {e}")
+            print(f"❌ Fehler beim CSV-Logging: {e}")
     
     def _log_to_json(self, timestamp, trade_data):
         """Loggt Trade in JSON Format"""
@@ -762,11 +762,11 @@ class TaxLogger:
             with open(self.json_log_path, 'w', encoding='utf-8') as f:
                 json.dump(history, f, indent=2, ensure_ascii=False)
             
-            print(f" Trade in JSON geloggt: {trade_data['symbol']} {trade_data['side']}")
+            print(f"✅ Trade in JSON geloggt: {trade_data['symbol']} {trade_data['side']}")
             return trade_record
             
         except Exception as e:
-            print(f" Fehler beim JSON-Logging: {e}")
+            print(f"❌ Fehler beim JSON-Logging: {e}")
             return None
     
     def get_recent_trades(self, limit=100):
@@ -774,7 +774,7 @@ class TaxLogger:
         try:
             # Prüfe ob Datei existiert
             if not os.path.exists(self.json_log_path):
-                print("ℹ  Keine JSON-History Datei gefunden")
+                print("ℹ️  Keine JSON-History Datei gefunden")
                 return []
             
             # Lade History
@@ -782,20 +782,20 @@ class TaxLogger:
                 history = json.load(f)
             
             if not history:
-                print("ℹ  JSON-History ist leer")
+                print("ℹ️  JSON-History ist leer")
                 return []
             
             # Sortiere nach Zeitstempel (neueste zuerst)
             recent_trades = sorted(history, key=lambda x: x.get('timestamp_iso', ''), reverse=True)
             
-            print(f" {len(recent_trades)} Trades aus JSON-History geladen")
+            print(f"✅ {len(recent_trades)} Trades aus JSON-History geladen")
             return recent_trades[:limit]
             
         except json.JSONDecodeError:
-            print(" Fehler: JSON-History Datei ist korrupt")
+            print("❌ Fehler: JSON-History Datei ist korrupt")
             return []
         except Exception as e:
-            print(f" Fehler beim Laden der JSON-History: {e}")
+            print(f"❌ Fehler beim Laden der JSON-History: {e}")
             return []
 
 # =============================================================================
@@ -847,11 +847,11 @@ class KuCoinTradingBot:
         # Starte automatische Trade-Überwachung
         self.start_auto_monitoring()
         
-        print(f" KuCoin Trading Bot initialisiert - Sandbox: {sandbox}")
-        print(f" Trade-History: {len(self.trade_history)} Trades geladen")
-        print(f" Aktive Trades: {len(self.active_trades)} Trades geladen")
-        print(f" Technische Analyse: {'TA-Lib + NumPy' if TA_LIB_AVAILABLE else 'NumPy'}")
-        print(f" Verkaufsstrategie: Take-Profit {self.take_profit_percent}%, Trailing Stop {self.trailing_stop_percent}%")
+        print(f"✅ KuCoin Trading Bot initialisiert - Sandbox: {sandbox}")
+        print(f"📊 Trade-History: {len(self.trade_history)} Trades geladen")
+        print(f"📈 Aktive Trades: {len(self.active_trades)} Trades geladen")
+        print(f"🔧 Technische Analyse: {'TA-Lib + NumPy' if TA_LIB_AVAILABLE else 'NumPy'}")
+        print(f"🎯 Verkaufsstrategie: Take-Profit {self.take_profit_percent}%, Trailing Stop {self.trailing_stop_percent}%")
         
     def start_auto_monitoring(self):
         """Startet automatische Trade-Überwachung mit Trailing Stop und technischen Signalen"""
@@ -864,27 +864,27 @@ class KuCoinTradingBot:
                     self.check_technical_sell_signals()
                     time.sleep(30)  # Alle 30 Sekunden prüfen
                 except Exception as e:
-                    print(f" Fehler in Monitoring-Loop: {e}")
+                    print(f"❌ Fehler in Monitoring-Loop: {e}")
                     time.sleep(60)
         
         threading.Thread(target=monitoring_loop, daemon=True).start()
-        print(" Automatische Trade-Überwachung gestartet")
+        print("✅ Automatische Trade-Überwachung gestartet")
         
     def load_trade_history(self):
         """Lädt Trade-History aus dem Tax-Logger"""
         try:
             recent_trades = self.tax_logger.get_recent_trades(1000)
             
-            print(f" Lade Trade-History: {len(recent_trades)} Trades gefunden")
+            print(f"🔍 Lade Trade-History: {len(recent_trades)} Trades gefunden")
             if recent_trades:
                 for i, trade in enumerate(recent_trades[:3]):
                     print(f"  Trade {i+1}: {trade.get('symbol')} {trade.get('side')} {trade.get('timestamp')}")
             
             self.trade_history = recent_trades
-            print(f" {len(self.trade_history)} Trades aus History geladen")
+            print(f"✅ {len(self.trade_history)} Trades aus History geladen")
             
         except Exception as e:
-            print(f" Fehler beim Laden der Trade-History: {e}")
+            print(f"❌ Fehler beim Laden der Trade-History: {e}")
             self.trade_history = []
     
     def save_active_trades(self):
@@ -932,8 +932,8 @@ class KuCoinTradingBot:
         timestamp = datetime.now().strftime('%H:%M:%S')
         log_entry = f"[{timestamp}] {message}"
         
-        #if any(keyword in message for keyword in ['✅', '❌', '⚡', '📊', '🎯']):
-        print(log_entry)
+        if any(keyword in message for keyword in ['✅', '❌', '⚡', '📊', '🎯']):
+            print(log_entry)
         
         if self.gui_reference:
             self.gui_reference.update_bot_activity(log_entry)
@@ -941,7 +941,7 @@ class KuCoinTradingBot:
     def set_trading_pairs(self, pairs):
         """Setzt die zu handelnden Kryptowährungen"""
         self.trading_pairs = pairs
-        self.update_bot_activity(f" Trading-Pairs aktualisiert: {', '.join(pairs)}")
+        self.update_bot_activity(f"📊 Trading-Pairs aktualisiert: {', '.join(pairs)}")
     
     def get_available_pairs(self):
         """Gibt verfügbare Trading-Pairs von KuCoin zurück"""
@@ -985,7 +985,7 @@ class KuCoinTradingBot:
                 return None
                 
         except Exception as e:
-            print(f" Fehler beim Abrufen historischer Daten für {symbol}: {e}")
+            print(f"❌ Fehler beim Abrufen historischer Daten für {symbol}: {e}")
             return None
     
     def analyze_crypto(self, symbol):
@@ -1070,12 +1070,12 @@ class KuCoinTradingBot:
             }
             
         except Exception as e:
-            print(f" Fehler bei Analyse von {symbol}: {e}")
+            print(f"❌ Fehler bei Analyse von {symbol}: {e}")
             return None
     
     def analyze_all_cryptos_parallel(self):
         """Analysiert alle Kryptos parallel"""
-        self.update_bot_activity(" Starte parallele Analyse aller Kryptowährungen...")
+        self.update_bot_activity("🔄 Starte parallele Analyse aller Kryptowährungen...")
         
         results = {}
         with ThreadPoolExecutor(max_workers=min(len(self.trading_pairs), 8)) as executor:
@@ -1088,16 +1088,16 @@ class KuCoinTradingBot:
                     if result:
                         results[symbol] = result
                 except Exception as e:
-                    print(f" Fehler bei Analyse von {symbol}: {e}")
+                    print(f"❌ Fehler bei Analyse von {symbol}: {e}")
         
         self.current_recommendations = results
-        self.update_bot_activity(f" Parallele Analyse abgeschlossen: {len(results)}/{len(self.trading_pairs)} Kryptos analysiert")
+        self.update_bot_activity(f"✅ Parallele Analyse abgeschlossen: {len(results)}/{len(self.trading_pairs)} Kryptos analysiert")
         return results
     
     def quick_signal_check(self):
         """Schnelle Signalprüfung für konfigurierte Kryptos"""
         try:
-            self.update_bot_activity(" Starte schnelle Signalprüfung...")
+            self.update_bot_activity("⚡ Starte schnelle Signalprüfung...")
             
             results = self.analyze_all_cryptos_parallel()
                     
@@ -1105,13 +1105,13 @@ class KuCoinTradingBot:
             return results
             
         except Exception as e:
-            self.update_bot_activity(f" Fehler bei schneller Signalprüfung: {e}")
+            self.update_bot_activity(f"❌ Fehler bei schneller Signalprüfung: {e}")
             return {}
     
     def run_complete_backtest(self, pairs=None, execute_trades=False):
         """Führt vollständigen Backtest durch und optional auch Trades"""
         try:
-            self.update_bot_activity(" Starte Backtest...")
+            self.update_bot_activity("📊 Starte Backtest...")
             
             cryptos = pairs if pairs else self.trading_pairs
             
@@ -1124,11 +1124,11 @@ class KuCoinTradingBot:
             if execute_trades and self.auto_trading:
                 self.execute_trades_based_on_signals(results)
             
-            self.update_bot_activity(f" Backtest abgeschlossen - {len(results)} Kryptos analysiert")
+            self.update_bot_activity(f"✅ Backtest abgeschlossen - {len(results)} Kryptos analysiert")
             return results
             
         except Exception as e:
-            self.update_bot_activity(f" Backtest Fehler: {e}")
+            self.update_bot_activity(f"❌ Backtest Fehler: {e}")
             return {}
         
     def execute_trades_based_on_signals(self, results):
@@ -1146,7 +1146,7 @@ class KuCoinTradingBot:
                 if success:
                     executed_trades += 1
         
-        self.update_bot_activity(f" Insgesamt {executed_trades} Trades ausgeführt")
+        self.update_bot_activity(f"📊 Insgesamt {executed_trades} Trades ausgeführt")
     
     def get_balance_summary(self):
         """Gibt echte Kontostand-Übersicht zurück"""
@@ -1209,7 +1209,7 @@ class KuCoinTradingBot:
             return balance_summary
             
         except Exception as e:
-            print(f" Fehler bei Balance Summary: {e}")
+            print(f"❌ Fehler bei Balance Summary: {e}")
             return None
     
     def get_current_price(self, symbol):
@@ -1240,7 +1240,7 @@ class KuCoinTradingBot:
             self.balance_cache = self.get_balance_summary()
             
         except Exception as e:
-            print(f" Fehler beim Cache-Update: {e}")
+            print(f"❌ Fehler beim Cache-Update: {e}")
     
     def calculate_portfolio_value(self):
         """Berechnet Gesamtwert des Portfolios"""
@@ -1315,7 +1315,7 @@ class KuCoinTradingBot:
             # Update highest_price
             if current_price > trade['highest_price']:
                 trade['highest_price'] = current_price
-                self.update_bot_activity(f" Neues Hoch für {symbol}: ${current_price:.4f}")
+                self.update_bot_activity(f"📈 Neues Hoch für {symbol}: ${current_price:.4f}")
             
             # Berechne Trailing Stop Preis
             trailing_stop_price = trade['highest_price'] * (1 - self.trailing_stop_percent / 100)
@@ -1363,12 +1363,12 @@ class KuCoinTradingBot:
                         self.close_trade(symbol, reason)
                         
             except Exception as e:
-                print(f" Fehler bei technischer Signalprüfung für {symbol}: {e}")
+                print(f"❌ Fehler bei technischer Signalprüfung für {symbol}: {e}")
     
     def close_all_trades(self):
         """Schließt alle aktiven Trades manuell"""
         if not self.active_trades:
-            self.update_bot_activity("ℹ Keine aktiven Trades zum Schließen")
+            self.update_bot_activity("ℹ️ Keine aktiven Trades zum Schließen")
             return False
             
         closed_trades = 0
@@ -1377,7 +1377,7 @@ class KuCoinTradingBot:
             if success:
                 closed_trades += 1
                 
-        self.update_bot_activity(f" {closed_trades} aktive Trades manuell geschlossen")
+        self.update_bot_activity(f"🔴 {closed_trades} aktive Trades manuell geschlossen")
         return closed_trades > 0
     
     def close_trade(self, symbol, reason):
@@ -1403,14 +1403,14 @@ class KuCoinTradingBot:
                 
             if order_result:
                 order_id = order_result.get('orderId', 'unknown')
-                self.update_bot_activity(f" Verkauf: {symbol} - {profit_loss_percent:+.1f}% - {reason}")
+                self.update_bot_activity(f"🔴 Verkauf: {symbol} - {profit_loss_percent:+.1f}% - {reason}")
             else:
                 order_id = 'failed'
-                self.update_bot_activity(f" Verkauf fehlgeschlagen: {symbol}")
+                self.update_bot_activity(f"❌ Verkauf fehlgeschlagen: {symbol}")
                 return False
         else:
             order_id = 'simulated'
-            self.update_bot_activity(f" Simulierter Verkauf: {symbol} - {profit_loss_percent:+.1f}% - {reason}")
+            self.update_bot_activity(f"🔴 Simulierter Verkauf: {symbol} - {profit_loss_percent:+.1f}% - {reason}")
         
         # Logge den Trade
         trade_data = {
@@ -1436,25 +1436,25 @@ class KuCoinTradingBot:
     def execute_trade(self, symbol, signal):
         """Führt einen Trade mit echter API aus mit verbesserter Validierung"""
         if not self.auto_trading:
-            print(f" Auto-Trading ist deaktiviert, kann Trade nicht ausführen")
+            print(f"❌ Auto-Trading ist deaktiviert, kann Trade nicht ausführen")
             return False
             
         if symbol in self.active_trades:
-            print(f" Trade für {symbol} bereits aktiv")
+            print(f"❌ Trade für {symbol} bereits aktiv")
             return False
             
         if len(self.active_trades) >= self.max_open_trades:
-            print(f" Maximale Anzahl offener Trades erreicht")
+            print(f"❌ Maximale Anzahl offener Trades erreicht")
             return False
             
         current_price = self.get_current_price(symbol)
         if not current_price:
-            print(f" Kein aktueller Preis für {symbol} verfügbar")
+            print(f"❌ Kein aktueller Preis für {symbol} verfügbar")
             return False
         
         portfolio_value = self.calculate_portfolio_value()
         if portfolio_value <= 0:
-            print(f" Portfolio-Wert ist 0 oder negativ")
+            print(f"❌ Portfolio-Wert ist 0 oder negativ")
             return False
             
         # Berechne Trade-Wert (mindestens $10 um Gebühren zu decken)
@@ -1463,10 +1463,10 @@ class KuCoinTradingBot:
         max_trade_value = portfolio_value * 0.2  # Maximal 20% des Portfolios pro Trade
         
         if trade_value < min_trade_value:
-            print(f" Trade-Wert zu klein (${trade_value:.2f}), erhöhe auf Minimum ${min_trade_value}")
+            print(f"⚠️ Trade-Wert zu klein (${trade_value:.2f}), erhöhe auf Minimum ${min_trade_value}")
             trade_value = min_trade_value
         elif trade_value > max_trade_value:
-            print(f" Trade-Wert zu groß (${trade_value:.2f}), reduziere auf Maximum ${max_trade_value:.2f}")
+            print(f"⚠️ Trade-Wert zu groß (${trade_value:.2f}), reduziere auf Maximum ${max_trade_value:.2f}")
             trade_value = max_trade_value
         
         # Berechne Menge basierend auf Preis
@@ -1478,21 +1478,21 @@ class KuCoinTradingBot:
         is_valid, validation_msg = self.api.validate_order_size(symbol, trade_amount, current_price)
         
         if not is_valid:
-            print(f" Order-Validierung fehlgeschlagen: {validation_msg}")
+            print(f"❌ Order-Validierung fehlgeschlagen: {validation_msg}")
             
             # Versuche korrigierte Größe
             corrected_amount = self.api.calculate_valid_size(symbol, trade_amount)
             if corrected_amount != trade_amount:
-                print(f" Verwende korrigierte Menge: {corrected_amount:.6f}")
+                print(f"🔄 Verwende korrigierte Menge: {corrected_amount:.6f}")
                 trade_amount = corrected_amount
             else:
-                print(f" Keine gültige Menge für {symbol} gefunden")
+                print(f"❌ Keine gültige Menge für {symbol} gefunden")
                 return False
         
         # Finale Validierung
         is_valid_final, final_msg = self.api.validate_order_size(symbol, trade_amount, current_price)
         if not is_valid_final:
-            print(f" Finale Validierung fehlgeschlagen: {final_msg}")
+            print(f"❌ Finale Validierung fehlgeschlagen: {final_msg}")
             return False
         
         final_trade_value = trade_amount * current_price
@@ -1508,7 +1508,7 @@ class KuCoinTradingBot:
                 )
                     
                 if order_result:
-                    print(f" API Order erfolgreich: {order_result}")
+                    print(f"✅ API Order erfolgreich: {order_result}")
                     
                     self.active_trades[symbol] = {
                         'buy_price': current_price,
@@ -1533,9 +1533,9 @@ class KuCoinTradingBot:
                     # Trade protokollieren
                     logged_trade = self.tax_logger.log_trade(trade_data)
                     if logged_trade:
-                        print(f" Trade erfolgreich protokolliert: {symbol}")
+                        print(f"✅ Trade erfolgreich protokolliert: {symbol}")
                     else:
-                        print(f" Trade konnte nicht protokolliert werden: {symbol}")
+                        print(f"❌ Trade konnte nicht protokolliert werden: {symbol}")
                     
                     # Speichere aktive Trades nach Kauf
                     self.save_active_trades()
@@ -1544,15 +1544,15 @@ class KuCoinTradingBot:
                     self.load_trade_history()
                     
                     self.last_trade_time = datetime.now()
-                    self.update_bot_activity(f" Trade eröffnet: {symbol} - {trade_amount:.6f} @ ${current_price:.2f}")
+                    self.update_bot_activity(f"🟢 Trade eröffnet: {symbol} - {trade_amount:.6f} @ ${current_price:.2f}")
                     return True
                 else:
-                    print(f" API Order fehlgeschlagen für {symbol}")
+                    print(f"❌ API Order fehlgeschlagen für {symbol}")
                     # Debug-Informationen
                     self.debug_order_issues(symbol, trade_amount, current_price)
                     return False
             except Exception as e:
-                print(f" Exception während Trade-Ausführung: {e}")
+                print(f"❌ Exception während Trade-Ausführung: {e}")
                 return False
         return False
 
@@ -1581,21 +1581,21 @@ class KuCoinTradingBot:
             
             # Prüfe ob Menge den Anforderungen entspricht
             if amount < min_size:
-                print(f"    Menge zu klein! Minimum: {min_size}")
+                print(f"   ❌ Menge zu klein! Minimum: {min_size}")
             if amount > max_size:
-                print(f"    Menge zu groß! Maximum: {max_size}")
+                print(f"   ❌ Menge zu groß! Maximum: {max_size}")
             if base_increment > 0:
                 steps = amount / base_increment
                 if not steps.is_integer():
                     valid_steps = round(steps)
                     valid_amount = round(valid_steps * base_increment, 8)
-                    print(f"    Ungültige Schrittgröße! Nächstes Valid: {valid_amount}")
+                    print(f"   ❌ Ungültige Schrittgröße! Nächstes Valid: {valid_amount}")
             
             order_value = amount * price
             if order_value < min_funds:
-                print(f"    Order-Wert zu klein! Minimum: {min_funds}")
+                print(f"   ❌ Order-Wert zu klein! Minimum: {min_funds}")
         else:
-            print(f"    Keine Symbol-Informationen verfügbar")
+            print(f"   ❌ Keine Symbol-Informationen verfügbar")
     
     def get_trade_history_for_gui(self, limit=50):
         """Gibt Trade-History für die GUI zurück mit korrekten Berechnungen"""
@@ -1603,7 +1603,7 @@ class KuCoinTradingBot:
             print(f"🔍 Lade Trade-History für GUI... ({len(self.trade_history)} Trades verfügbar)")
             
             if not self.trade_history:
-                print("ℹ Keine Trade-History verfügbar")
+                print("ℹ️ Keine Trade-History verfügbar")
                 return []
             
             gui_trades = []
@@ -1639,14 +1639,14 @@ class KuCoinTradingBot:
                     gui_trades.append(gui_trade)
                     
                 except Exception as e:
-                    print(f" Fehler beim Konvertieren des Trades: {e}")
+                    print(f"⚠️ Fehler beim Konvertieren des Trades: {e}")
                     continue
             
-            print(f" {len(gui_trades)} Trades für GUI vorbereitet")
+            print(f"✅ {len(gui_trades)} Trades für GUI vorbereitet")
             return gui_trades
             
         except Exception as e:
-            print(f" Fehler in get_trade_history_for_gui: {e}")
+            print(f"❌ Fehler in get_trade_history_for_gui: {e}")
             return []
 
 # =============================================================================
@@ -1661,38 +1661,12 @@ class ModernTradingGUI:
         self.root = tk.Tk()
         self.setup_gui()
         self.start_auto_updates()
-    
-    def pi_text(self, text):
-        """Ersetzt Emojis für Raspberry Pi Kompatibilität"""
-        replacements = {
-            '🚀': '>>',
-            '📊': '[CHART]',
-            '💎': '[TRADE]', 
-            '📈': '[ANALYSE]',
-            '💰': '[PORT]',
-            '📋': '[HIST]',
-            '🏛️': '[TAX]',
-            '✅': '[OK]',
-            '❌': '[ERR]',
-            '⚠️': '[!]',
-            '🔄': '[REFRESH]',
-            '🎯': '[TARGET]',
-            '🤖': '[BOT]',
-            '🟢': '[ON]',
-            '🔴': '[OFF]',
-            '⚡': '[FAST]',
-            '📉': '[DOWN]',
-            '📈': '[UP]',
-            '🔍': '[SEARCH]'
-        }
-        for emoji, replacement in replacements.items():
-            text = text.replace(emoji, replacement)
-        return text
+        
         
     def setup_gui(self):
         """Erstellt das moderne FullHD GUI"""
         # Hauptfenster für FullHD
-        self.root.title(" KuCoin Trading Bot - FullHD Optimiert")
+        self.root.title("🚀 KuCoin Trading Bot - FullHD Optimiert")
         self.root.geometry("1920x1080")
         self.root.configure(bg='#1e1e1e')  # Dunkler Hintergrund
         
@@ -1788,14 +1762,14 @@ class ModernTradingGUI:
         left_header.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 20))
         
         title_label = ttk.Label(left_header, 
-                              text=self.pi_text(" KuCoin Trading Bot"), 
+                              text="🚀 KuCoin Trading Bot", 
                               font=('Arial', 20, 'bold'),
                               style='Modern.TLabel',
                               foreground='#ffffff')  # Explizit weiße Schrift
         title_label.pack(anchor=tk.W)
         
         self.status_label = ttk.Label(left_header, 
-                                    text=self.pi_text(" Nicht verbunden"), 
+                                    text="🔴 Nicht verbunden", 
                                     font=('Arial', 12),
                                     style='Modern.TLabel',
                                     foreground='#ff6b6b')  # Rote Schrift für "Nicht verbunden"
@@ -1847,7 +1821,7 @@ class ModernTradingGUI:
     def setup_dashboard_tab(self):
         """Dashboard Tab mit Übersicht - VERBESSERTE FARBEN"""
         dashboard_frame = ttk.Frame(self.notebook, style='Modern.TFrame')
-        self.notebook.add(dashboard_frame, text=self.pi_text(" Dashboard"))
+        self.notebook.add(dashboard_frame, text="📊 Dashboard")
         
         # Obere Reihe: Balance und Schnellaktionen
         top_frame = ttk.Frame(dashboard_frame, style='Modern.TFrame')
@@ -1871,11 +1845,11 @@ class ModernTradingGUI:
         actions_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=5)
         
         action_buttons = [
-            (self.pi_text(" Schnellanalyse"), self.quick_signal_check, 'Modern.TButton'),
-            (self.pi_text(" Vollständiger Backtest"), self.start_backtest, 'Modern.TButton'),
-            (self.pi_text(" Cache Aktualisieren"), self.force_cache_update, 'Modern.TButton'),
-            (self.pi_text(" Auto Trade Starten"), self.toggle_auto_trade, 'Warning.TButton'),
-            (self.pi_text(" Alle Trades schließen"), self.close_all_trades, 'Danger.TButton')
+            ("🔍 Schnellanalyse", self.quick_signal_check, 'Modern.TButton'),
+            ("📊 Vollständiger Backtest", self.start_backtest, 'Modern.TButton'),
+            ("🔄 Cache Aktualisieren", self.force_cache_update, 'Modern.TButton'),
+            ("🤖 Auto Trade Starten", self.toggle_auto_trade, 'Warning.TButton'),
+            ("🔴 Alle Trades schließen", self.close_all_trades, 'Danger.TButton')
         ]
         
         for text, command, style_name in action_buttons:
@@ -1952,7 +1926,7 @@ class ModernTradingGUI:
     def setup_trading_tab(self):
         """Trading Tab mit Pair-Auswahl und Einstellungen - VERBESSERTE FARBEN"""
         trading_frame = ttk.Frame(self.notebook, style='Modern.TFrame')
-        self.notebook.add(trading_frame, text=self.pi_text(" Trading"))
+        self.notebook.add(trading_frame, text="💎 Trading")
         
         # Linke Seite: Pair Auswahl
         left_frame = ttk.Frame(trading_frame, style='Modern.TFrame')
@@ -2020,14 +1994,14 @@ class ModernTradingGUI:
         # Action Buttons
         action_frame = ttk.Frame(left_frame, style='Modern.TFrame')
         action_frame.pack(fill=tk.X, pady=5)
-
-        ttk.Button(action_frame, text=self.pi_text(" Auswählen"), 
+        
+        ttk.Button(action_frame, text="➡️ Auswählen", 
                   command=self.add_selected_pairs,
                   style='Modern.TButton').pack(side=tk.LEFT, padx=2)
-        ttk.Button(action_frame, text=self.pi_text(" Entfernen"), 
+        ttk.Button(action_frame, text="❌ Entfernen", 
                   command=self.remove_selected_pairs,
                   style='Danger.TButton').pack(side=tk.LEFT, padx=2)
-        ttk.Button(action_frame, text=self.pi_text(" Speichern"), 
+        ttk.Button(action_frame, text="💾 Speichern", 
                   command=self.save_trading_pairs,
                   style='Success.TButton').pack(side=tk.RIGHT, padx=2)
         
@@ -2114,18 +2088,18 @@ class ModernTradingGUI:
         
         manual_button_frame = ttk.Frame(manual_frame, style='Modern.TFrame')
         manual_button_frame.pack(fill=tk.X, padx=10, pady=5)
-
-        ttk.Button(manual_button_frame, text=self.pi_text(" BUY"), 
+        
+        ttk.Button(manual_button_frame, text="🟢 BUY", 
                   command=lambda: self.execute_manual_trade("buy"),
                   style='Success.TButton').pack(side=tk.LEFT, padx=5)
-        ttk.Button(manual_button_frame, text=self.pi_text(" SELL"), 
+        ttk.Button(manual_button_frame, text="🔴 SELL", 
                   command=lambda: self.execute_manual_trade("sell"),
                   style='Danger.TButton').pack(side=tk.LEFT, padx=5)
         
     def setup_analysis_tab(self):
         """Analysis Tab mit detaillierten Empfehlungen"""
         analysis_frame = ttk.Frame(self.notebook, style='Modern.TFrame')
-        self.notebook.add(analysis_frame, text=self.pi_text("📈 Analyse"))
+        self.notebook.add(analysis_frame, text="📈 Analyse")
         
         # Toolbar
         toolbar = ttk.Frame(analysis_frame, style='Modern.TFrame')
@@ -2172,7 +2146,7 @@ class ModernTradingGUI:
     def setup_portfolio_tab(self):
         """Portfolio Tab mit detaillierter Aufstellung"""
         portfolio_frame = ttk.Frame(self.notebook, style='Modern.TFrame')
-        self.notebook.add(portfolio_frame, text=self.pi_text(" Portfolio"))
+        self.notebook.add(portfolio_frame, text="💰 Portfolio")
         
         # Summary Frame
         summary_frame = ttk.LabelFrame(portfolio_frame, text="Portfolio Zusammenfassung", style='Modern.TLabelframe')
@@ -2213,7 +2187,7 @@ class ModernTradingGUI:
     def setup_history_tab(self):
         """History Tab mit Trade-Verlauf"""
         history_frame = ttk.Frame(self.notebook, style='Modern.TFrame')
-        self.notebook.add(history_frame, text=self.pi_text(" History"))
+        self.notebook.add(history_frame, text="📋 History")
         
         # Toolbar
         toolbar = ttk.Frame(history_frame, style='Modern.TFrame')
@@ -2255,7 +2229,7 @@ class ModernTradingGUI:
     def setup_tax_tab(self):
         """Tax Tab mit Finanzamt-Protokollierung"""
         tax_frame = ttk.Frame(self.notebook, style='Modern.TFrame')
-        self.notebook.add(tax_frame, text=self.pi_text(" Finanzamt"))
+        self.notebook.add(tax_frame, text="🏛️ Finanzamt")
         
         # Toolbar
         toolbar = ttk.Frame(tax_frame, style='Modern.TFrame')
@@ -2334,21 +2308,14 @@ class ModernTradingGUI:
         
     def update_status(self, message):
         """Aktualisiert Status-Anzeige"""
-        # Emojis für Pi kompatibel machen
-        pi_message = self.pi_text(message)
-        self.status_var.set(pi_message)
+        self.status_var.set(message)
         print(f"Status: {message}")
     
     def update_bot_activity(self, message):
         """Aktualisiert Bot-Aktivitätslog"""
-        # Für Raspberry Pi kompatible Ausgabe
-        pi_message = self.pi_text(message)
-        
-        if any(keyword in message for keyword in ['✅', '❌', '⚡', '📊', '🎯']):
-            print(pi_message)
-        
-        if self.gui_reference:
-            self.gui_reference.update_bot_activity(pi_message)
+        # Für FullHD GUI können wir das in die Status-Bar oder einen separaten Log schreiben
+        if "✅" in message or "❌" in message:
+            self.update_status(message)
     
     def toggle_connection(self):
         """Schaltet die Verbindung zur KuCoin API um"""
@@ -2356,19 +2323,19 @@ class ModernTradingGUI:
             if hasattr(self.bot.api, 'api_key') and self.bot.api.api_key:
                 # Teste Verbindung
                 if self.bot.api.test_connection():
-                    self.status_label.configure(text=" Verbunden")
+                    self.status_label.configure(text="🟢 Verbunden")
                     self.connect_button.configure(text="Trennen")
-                    self.update_status(" Verbindung erfolgreich")
+                    self.update_status("✅ Verbindung erfolgreich")
                 else:
-                    self.status_label.configure(text=" Verbindungsfehler")
-                    self.update_status(" Verbindung fehlgeschlagen")
+                    self.status_label.configure(text="🔴 Verbindungsfehler")
+                    self.update_status("❌ Verbindung fehlgeschlagen")
             else:
-                self.status_label.configure(text=" Nicht verbunden")
+                self.status_label.configure(text="🔴 Nicht verbunden")
                 self.connect_button.configure(text="Verbinden")
                 
         except Exception as e:
-            self.status_label.configure(text=" Fehler")
-            self.update_status(f" Verbindungsfehler: {e}")
+            self.status_label.configure(text="🔴 Fehler")
+            self.update_status(f"❌ Verbindungsfehler: {e}")
     
     def show_api_login(self):
         """Zeigt API Login Dialog"""
@@ -2401,9 +2368,9 @@ class ModernTradingGUI:
             if api_key and api_secret and api_passphrase:
                 self.bot.api = KuCoinAPI(api_key, api_secret, api_passphrase, sandbox)
                 if self.bot.api.test_connection():
-                    self.status_label.configure(text=self.pi_text(" Verbunden"))
+                    self.status_label.configure(text="🟢 Verbunden")
                     self.connect_button.configure(text="Trennen")
-                    self.update_status(" Verbindung erfolgreich")
+                    self.update_status("✅ Verbindung erfolgreich")
                     login_window.destroy()
                     
                     # Aktualisiere Daten
@@ -2507,11 +2474,11 @@ class ModernTradingGUI:
         """Schaltet automatische Trade-Ausführung um"""
         if not hasattr(self, 'auto_trade_running') or not self.auto_trade_running:
             self.auto_trade_running = True
-            self.update_status(" Auto-Trade gestartet")
+            self.update_status("🤖 Auto-Trade gestartet")
             threading.Thread(target=self.auto_trading_loop, daemon=True).start()
         else:
             self.auto_trade_running = False
-            self.update_status(" Auto-Trade gestoppt")
+            self.update_status("🤖 Auto-Trade gestoppt")
     
     def auto_trading_loop(self):
         """Hintergrund-Loop für automatisches Trading"""
@@ -2529,7 +2496,7 @@ class ModernTradingGUI:
                 time.sleep(60)
                 
             except Exception as e:
-                self.update_status(f" Auto-Trade Fehler: {e}")
+                self.update_status(f"❌ Auto-Trade Fehler: {e}")
                 time.sleep(30)
     
     def save_settings(self):
@@ -2607,12 +2574,12 @@ class ModernTradingGUI:
                 # Action Text
                 action_text = ""
                 if "BUY" in signal and confidence >= 70:
-                    action_text = self.pi_text("🟢 HANDELN")
+                    action_text = "🟢 HANDELN"
                 elif "SELL" in signal:
-                    action_text = self.pi_text("🔴 VERKAUFEN")
+                    action_text = "🔴 VERKAUFEN"
                 else:
-                    action_text = self.pi_text("🟡 WARTEN")
-
+                    action_text = "🟡 WARTEN"
+                
                 # Tags für Farbgebung mit besseren Kontrasten
                 tags = ()
                 if "BUY" in signal:
@@ -2659,7 +2626,7 @@ class ModernTradingGUI:
             self.dashboard_rec_tree.tag_configure('sell', background='#f8d7da', foreground='#000000')
             self.dashboard_rec_tree.tag_configure('hold', background='#fff3cd', foreground='#000000')
         
-        self.update_status(f" Analyse abgeschlossen: {len(results)} Kryptos")
+        self.update_status(f"✅ Analyse abgeschlossen: {len(results)} Kryptos")
     
     def update_recommendations(self):
         """Aktualisiert Empfehlungen (Alias für Kompatibilität)"""
@@ -2675,10 +2642,10 @@ class ModernTradingGUI:
         results = self.bot.run_complete_backtest()
         
         if results:
-            self.root.after(0, lambda: self.update_status(f" Backtest abgeschlossen: {len(results)} Kryptos"))
+            self.root.after(0, lambda: self.update_status(f"✅ Backtest abgeschlossen: {len(results)} Kryptos"))
             self.root.after(0, self.update_analysis_results, results)
         else:
-            self.root.after(0, lambda: self.update_status(" Backtest fehlgeschlagen"))
+            self.root.after(0, lambda: self.update_status("❌ Backtest fehlgeschlagen"))
     
     def update_balance_display(self):
         """Aktualisiert Balance-Anzeige"""
@@ -2713,12 +2680,12 @@ class ModernTradingGUI:
                                 f"{asset['percentage']:.1f}%"
                             ))
                     
-                    self.update_status(" Kontostand aktualisiert")
+                    self.update_status("✅ Kontostand aktualisiert")
                 else:
-                    self.update_status(" Keine Kontostandsdaten verfügbar")
+                    self.update_status("❌ Keine Kontostandsdaten verfügbar")
                     
             except Exception as e:
-                self.update_status(f" Fehler bei Balance-Update: {e}")
+                self.update_status(f"❌ Fehler bei Balance-Update: {e}")
         
         threading.Thread(target=update, daemon=True).start()
     
@@ -3027,7 +2994,7 @@ class ModernTradingGUI:
             self.history_tree.tag_configure('neutral', background='#fff3cd', foreground='#000000')
             
         except Exception as e:
-            print(f"Fehler beim Aktualisieren der Trade-History: {e}")
+            print(f"❌ Fehler beim Aktualisieren der Trade-History: {e}")
     
     def update_tax_log(self):
         """Aktualisiert Finanzamt-Log mit korrekter Gewinnberechnung"""
@@ -3091,7 +3058,7 @@ class ModernTradingGUI:
                     ), tags=tags)
                     
                 except Exception as e:
-                    print(f" Fehler beim Verarbeiten des Trades: {e}")
+                    print(f"⚠️ Fehler beim Verarbeiten des Trades: {e}")
                     continue
                     
             self.tax_tree.tag_configure('buy', background='#e8f4fd', foreground='#000000')
@@ -3107,14 +3074,14 @@ class ModernTradingGUI:
             if hasattr(self, 'total_profit_var'):
                 self.total_profit_var.set(f"Netto Gewinn/Verlust: ${net_profit:+.2f}")
             
-            print(f" Finanzamt-Update: {len(recent_trades)} Trades, Netto: ${net_profit:.2f}")
+            print(f"📊 Finanzamt-Update: {len(recent_trades)} Trades, Netto: ${net_profit:.2f}")
                 
         except Exception as e:
-            print(f" Fehler beim Aktualisieren des Finanzamt-Logs: {e}")
+            print(f"❌ Fehler beim Aktualisieren des Finanzamt-Logs: {e}")
     
     def force_history_update(self):
         """Erzwingt History-Update"""
-        print(" Erzwinge History Update...")
+        print("🔄 Erzwinge History Update...")
         
         def update():
             self.bot.load_trade_history()
@@ -3135,11 +3102,11 @@ class ModernTradingGUI:
             current_tab = self.notebook.select()
             tab_text = self.notebook.tab(current_tab, "text")
             
-            if tab_text == self.pi_text("📋 History"):
+            if tab_text == "📋 History":
                 self.update_trade_history()
-            elif tab_text == self.pi_text("🏛️ Finanzamt"):
+            elif tab_text == "🏛️ Finanzamt":
                 self.update_tax_log()
-            elif tab_text == self.pi_text("📊 Dashboard"):
+            elif tab_text == "📊 Dashboard":
                 self.update_active_trades()
                 self.update_recommendations()
                 
@@ -3175,22 +3142,22 @@ class ModernTradingGUI:
             best_trade = max(recent_trades, key=lambda x: x.get('profit_loss', 0)) if recent_trades else None
             worst_trade = min(recent_trades, key=lambda x: x.get('profit_loss', 0)) if recent_trades else None
             
-            report_text = f""" Detaillierter Steuerreport (Letzte {total_trades} Trades)
+            report_text = f"""📊 Detaillierter Steuerreport (Letzte {total_trades} Trades)
 
-     Handelsaktivität:
+    📈 Handelsaktivität:
     • Gesamte Trades: {total_trades}
     • Kauf-Trades: {buy_trades}
     • Verkauf-Trades: {sell_trades}
     • Erfolgsquote: {(len(profitable_trades)/total_trades*100):.1f}% ({len(profitable_trades)} profitable Trades)
 
-     Finanzielle Übersicht:
+    💰 Finanzielle Übersicht:
     • Handelsvolumen: ${total_volume:,.2f}
     • Gesamtgewinn: ${total_profit:,.2f}
     • Gesamtverlust: ${total_loss:,.2f}
     • Netto Gewinn/Verlust: ${net_profit:+,.2f}
     • Gezahlte Gebühren: ${total_fees:,.2f}
 
-     Beste/Schlechteste Trades:"""
+    🏆 Beste/Schlechteste Trades:"""
             
             if best_trade:
                 report_text += f"\n• Bester Trade: {best_trade.get('symbol', 'Unknown')} (+${best_trade.get('profit_loss', 0):.2f})"
@@ -3214,7 +3181,7 @@ class ModernTradingGUI:
                     continue
             
             if monthly_data:
-                report_text += "\n\n Monatliche Performance:"
+                report_text += "\n\n📅 Monatliche Performance:"
                 for month in sorted(monthly_data.keys(), reverse=True)[:6]:  # Letzte 6 Monate
                     data = monthly_data[month]
                     report_text += f"\n• {month}: {data['trades']} Trades, ${data['profit']:+,.2f} Gewinn"
@@ -3291,7 +3258,7 @@ def load_env_file():
             break
     
     if env_file_found:
-        print(f" Lade Umgebungsvariablen aus: {env_file_found}")
+        print(f"📁 Lade Umgebungsvariablen aus: {env_file_found}")
         try:
             with open(env_file_found, 'r', encoding='utf-8') as f:
                 for line in f:
@@ -3300,16 +3267,16 @@ def load_env_file():
                         key, value = line.split('=', 1)
                         env_vars[key.strip()] = value.strip().strip('"').strip("'")
         except Exception as e:
-            print(f"  Fehler beim Laden der .env Datei: {e}")
+            print(f"⚠️  Fehler beim Laden der .env Datei: {e}")
     else:
-        print("  Keine .env Datei gefunden. Verwende Standardwerte.")
+        print("⚠️  Keine .env Datei gefunden. Verwende Standardwerte.")
     
     return env_vars
 
 def main():
-    print(" Starte KuCoin Trading Bot - FullHD Optimiert")
-    print(f" Technische Analyse: {'TA-Lib + NumPy' if TA_LIB_AVAILABLE else 'NumPy'}")
-    print(" Modernes FullHD GUI geladen")
+    print("🚀 Starte KuCoin Trading Bot - FullHD Optimiert")
+    print(f"📊 Technische Analyse: {'TA-Lib + NumPy' if TA_LIB_AVAILABLE else 'NumPy'}")
+    print("🎨 Modernes FullHD GUI geladen")
     
     # Lade API-Daten
     env_vars = load_env_file()
@@ -3320,8 +3287,8 @@ def main():
     SANDBOX = env_vars.get('KUCOIN_SANDBOX', 'False').lower() == 'true'
     
     if not all([API_KEY, API_SECRET, API_PASSPHRASE]):
-        print(" Fehler: API-Daten nicht gefunden!")
-        print(" Bitte erstelle eine .env oder api.env Datei mit folgenden Inhalten:")
+        print("❌ Fehler: API-Daten nicht gefunden!")
+        print("💡 Bitte erstelle eine .env oder api.env Datei mit folgenden Inhalten:")
         print("   KUCOIN_API_KEY=dein_api_key")
         print("   KUCOIN_API_SECRET=dein_api_secret")
         print("   KUCOIN_API_PASSPHRASE=dein_api_passphrase")
@@ -3343,18 +3310,18 @@ def main():
             sandbox=SANDBOX
         )
 
-        print(f" Bot initialisiert mit {len(bot.trade_history)} Trades in History")
-        print(f" {len(bot.active_trades)} aktive Trades geladen")
+        print(f"📊 Bot initialisiert mit {len(bot.trade_history)} Trades in History")
+        print(f"📈 {len(bot.active_trades)} aktive Trades geladen")
         
         # GUI starten
-        print(" Starte FullHD GUI...")
+        print("🎨 Starte FullHD GUI...")
         gui = ModernTradingGUI(bot)
-        print(" GUI erfolgreich gestartet")
+        print("✅ GUI erfolgreich gestartet")
         gui.run()
         
     except Exception as e:
-        print(f" Fehler beim Starten: {e}")
-        print(" Tipps zur Problembehebung:")
+        print(f"❌ Fehler beim Starten: {e}")
+        print("💡 Tipps zur Problembehebung:")
         print("   1. Prüfen Sie die API Keys in der .env Datei")
         print("   2. Stellen Sie sicher, dass Tkinter installiert ist")
         print("   3. Starten Sie das System neu bei Display-Problemen")
