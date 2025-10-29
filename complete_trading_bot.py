@@ -1,4 +1,4 @@
-# complete_trading_bot_fixed.py
+# complete_trading_bot.py
 import os
 import warnings
 warnings.filterwarnings('ignore')
@@ -743,6 +743,8 @@ class KuCoinTradingBot:
         # Trading Einstellungen
         self.auto_trading = False
         self.stop_loss_percent = 2.0
+        self.take_profit_percent = 5.0  # NEU: Take-Profit
+        self.trailing_stop_percent = 3.0  # NEU: Trailing Stop
         self.trade_size_percent = 10.0
         self.max_open_trades = 5
         self.rsi_oversold = 30
@@ -766,9 +768,30 @@ class KuCoinTradingBot:
         print("🔄 Lade Trade-History beim Start...")
         self.load_trade_history()
         
+        # Starte automatische Trade-Überwachung
+        self.start_auto_monitoring()
+        
         print(f"✅ KuCoin Trading Bot initialisiert - Sandbox: {sandbox}")
         print(f"📊 Trade-History: {len(self.trade_history)} Trades geladen")
         print(f"🔧 Technische Analyse: {'TA-Lib + NumPy' if TA_LIB_AVAILABLE else 'NumPy'}")
+        print(f"🎯 Verkaufsstrategie: Take-Profit {self.take_profit_percent}%, Trailing Stop {self.trailing_stop_percent}%")
+        
+    def start_auto_monitoring(self):
+        """Startet automatische Trade-Überwachung mit Trailing Stop und technischen Signalen"""
+        def monitoring_loop():
+            while True:
+                try:
+                    self.check_stop_loss()
+                    self.check_take_profit()
+                    self.check_trailing_stop()
+                    self.check_technical_sell_signals()
+                    time.sleep(30)  # Alle 30 Sekunden prüfen
+                except Exception as e:
+                    print(f"❌ Fehler in Monitoring-Loop: {e}")
+                    time.sleep(60)
+        
+        threading.Thread(target=monitoring_loop, daemon=True).start()
+        print("✅ Automatische Trade-Überwachung gestartet")
         
     def load_trade_history(self):
         """Lädt Trade-History aus dem Tax-Logger"""
@@ -928,6 +951,7 @@ class KuCoinTradingBot:
                 'rsi': rsi,
                 'ma_short': ma_short,
                 'ma_long': ma_long,
+                'macd': macd_data,
                 'total_return': ((current_price - historical_data[0]) / historical_data[0]) * 100 if historical_data else 0
             }
             
@@ -1098,7 +1122,7 @@ class KuCoinTradingBot:
         balance = self.get_balance_summary()
         return balance['total_portfolio_value'] if balance else 0.0
     
-    def set_trading_settings(self, stop_loss=None, trade_size=None, rsi_oversold=None, rsi_overbought=None):
+    def set_trading_settings(self, stop_loss=None, trade_size=None, rsi_oversold=None, rsi_overbought=None, take_profit=None, trailing_stop=None):
         """Aktualisiert Trading-Einstellungen"""
         if stop_loss is not None:
             self.stop_loss_percent = stop_loss
@@ -1108,6 +1132,10 @@ class KuCoinTradingBot:
             self.rsi_oversold = rsi_oversold
         if rsi_overbought is not None:
             self.rsi_overbought = rsi_overbought
+        if take_profit is not None:
+            self.take_profit_percent = take_profit
+        if trailing_stop is not None:
+            self.trailing_stop_percent = trailing_stop
     
     def set_interval(self, interval):
         """Setzt Analyse-Interval"""
@@ -1118,7 +1146,7 @@ class KuCoinTradingBot:
         if not self.active_trades:
             return
             
-        for symbol, trade in self.active_trades.items():
+        for symbol, trade in list(self.active_trades.items()):
             current_price = self.get_current_price(symbol)
             if not current_price:
                 continue
@@ -1129,6 +1157,89 @@ class KuCoinTradingBot:
             if current_price <= stop_loss_price:
                 self.close_trade(symbol, f"Stop-Loss erreicht ({self.stop_loss_percent}%)")
     
+    def check_take_profit(self):
+        """Prüft Take-Profit für aktive Trades"""
+        if not self.active_trades:
+            return
+            
+        for symbol, trade in list(self.active_trades.items()):
+            current_price = self.get_current_price(symbol)
+            if not current_price:
+                continue
+                
+            buy_price = trade['buy_price']
+            profit_percent = ((current_price - buy_price) / buy_price) * 100
+            
+            if profit_percent >= self.take_profit_percent:
+                self.close_trade(symbol, f"Take-Profit erreicht ({profit_percent:.1f}%)")
+    
+    def check_trailing_stop(self):
+        """Prüft Trailing-Stop für aktive Trades"""
+        if not self.active_trades:
+            return
+            
+        for symbol, trade in list(self.active_trades.items()):
+            current_price = self.get_current_price(symbol)
+            if not current_price:
+                continue
+            
+            # Initialisiere highest_price falls nicht vorhanden
+            if 'highest_price' not in trade:
+                trade['highest_price'] = trade['buy_price']
+            
+            # Update highest_price
+            if current_price > trade['highest_price']:
+                trade['highest_price'] = current_price
+                self.update_bot_activity(f"📈 Neues Hoch für {symbol}: ${current_price:.4f}")
+            
+            # Berechne Trailing Stop Preis
+            trailing_stop_price = trade['highest_price'] * (1 - self.trailing_stop_percent / 100)
+            
+            if current_price <= trailing_stop_price:
+                profit_percent = ((current_price - trade['buy_price']) / trade['buy_price']) * 100
+                self.close_trade(symbol, f"Trailing Stop erreicht ({profit_percent:+.1f}% Gewinn)")
+    
+    def check_technical_sell_signals(self):
+        """Prüft technische Verkaufssignale für aktive Trades"""
+        if not self.active_trades:
+            return
+            
+        for symbol, trade in list(self.active_trades.items()):
+            try:
+                analysis = self.analyze_crypto(symbol)
+                if not analysis:
+                    continue
+                
+                current_signal = analysis.get('current_signal', 'HOLD')
+                rsi = analysis.get('rsi', 50)
+                ma_short = analysis.get('ma_short', 0)
+                ma_long = analysis.get('ma_long', 0)
+                macd_data = analysis.get('macd', {})
+                macd_line = macd_data.get('macd', 0)
+                macd_signal = macd_data.get('signal', 0)
+                
+                # Verkaufsbedingungen
+                sell_conditions = [
+                    current_signal in ["STRONG_SELL", "SELL"],
+                    rsi > 75,  # Stark überkauft
+                    ma_short < ma_long,  # MA Death Cross
+                    macd_line < macd_signal,  # MACD bearish
+                    (ma_short < ma_long) and (rsi > 70),  # Kombiniertes Signal
+                ]
+                
+                # Zähle erfüllte Bedingungen
+                fulfilled_conditions = sum(sell_conditions)
+                
+                if fulfilled_conditions >= 2:  # Mindestens 2 Bedingungen erfüllt
+                    current_price = self.get_current_price(symbol)
+                    if current_price:
+                        profit_percent = ((current_price - trade['buy_price']) / trade['buy_price']) * 100
+                        reason = f"Technisches Verkaufssignal ({fulfilled_conditions}/5 Bedingungen, {profit_percent:+.1f}%)"
+                        self.close_trade(symbol, reason)
+                        
+            except Exception as e:
+                print(f"❌ Fehler bei technischer Signalprüfung für {symbol}: {e}")
+    
     def close_trade(self, symbol, reason):
         """Schließt einen aktiven Trade mit echter API"""
         if symbol in self.active_trades:
@@ -1138,6 +1249,7 @@ class KuCoinTradingBot:
                 return
                     
             profit_loss = (current_price - trade['buy_price']) * trade['amount']
+            profit_loss_percent = ((current_price - trade['buy_price']) / trade['buy_price']) * 100
                 
             if self.auto_trading:
                 order_result = self.api.place_order(
@@ -1149,10 +1261,13 @@ class KuCoinTradingBot:
                     
                 if order_result:
                     order_id = order_result.get('orderId', 'unknown')
+                    self.update_bot_activity(f"🔴 Verkauf: {symbol} - {profit_loss_percent:+.1f}% - {reason}")
                 else:
                     order_id = 'failed'
+                    self.update_bot_activity(f"❌ Verkauf fehlgeschlagen: {symbol}")
             else:
                 order_id = 'simulated'
+                self.update_bot_activity(f"🔴 Simulierter Verkauf: {symbol} - {profit_loss_percent:+.1f}% - {reason}")
             
             # Logge den Trade
             trade_data = {
@@ -1161,7 +1276,7 @@ class KuCoinTradingBot:
                 'amount': trade['amount'],
                 'price': current_price,
                 'profit_loss': profit_loss,
-                'profit_loss_percent': (profit_loss / (trade['buy_price'] * trade['amount'])) * 100,
+                'profit_loss_percent': profit_loss_percent,
                 'reason': reason,
                 'order_id': order_id,
                 'portfolio_value': self.calculate_portfolio_value()
@@ -1170,8 +1285,6 @@ class KuCoinTradingBot:
             
             # Aktualisiere Trade-History
             self.load_trade_history()
-                
-            self.update_bot_activity(f"🔒 Trade geschlossen: {symbol} - {reason} - P/L: ${profit_loss:.2f}")
     
     def execute_trade(self, symbol, signal):
         """Führt einen Trade mit echter API aus mit verbesserter Validierung"""
@@ -1254,6 +1367,7 @@ class KuCoinTradingBot:
                         'buy_price': current_price,
                         'amount': trade_amount,
                         'timestamp': datetime.now(),
+                        'highest_price': current_price,  # NEU: Für Trailing Stop
                         'order_id': order_result.get('orderId', 'unknown')
                     }
                         
@@ -1597,7 +1711,7 @@ class ModernTradingGUI:
         trades_frame = ttk.LabelFrame(bottom_frame, text="Aktive Trades", style='Modern.TLabelframe')
         trades_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=5)
         
-        columns = ('Symbol', 'Kaufpreis', 'Aktuell', 'Menge', 'P/L %', 'P/L €', 'Seit')
+        columns = ('Symbol', 'Kaufpreis', 'Aktuell', 'Menge', 'P/L %', 'P/L €', 'Seit', 'Höchstkurs')
         self.trades_tree = ttk.Treeview(trades_frame, columns=columns, show='headings', style='Modern.Treeview')
         
         for col in columns:
@@ -1742,6 +1856,20 @@ class ModernTradingGUI:
         self.trade_size_var = tk.StringVar(value=str(self.bot.trade_size_percent))
         trade_size_entry = ttk.Entry(risk_frame, textvariable=self.trade_size_var, width=10, style='Modern.TEntry')
         trade_size_entry.grid(row=0, column=3, padx=5)
+        
+        # Take-Profit und Trailing Stop
+        profit_frame = ttk.Frame(settings_frame, style='Modern.TFrame')
+        profit_frame.pack(fill=tk.X, padx=10, pady=5)
+        
+        ttk.Label(profit_frame, text="Take-Profit %:", style='Modern.TLabel', width=15).grid(row=0, column=0, sticky=tk.W)
+        self.take_profit_var = tk.StringVar(value=str(self.bot.take_profit_percent))
+        take_profit_entry = ttk.Entry(profit_frame, textvariable=self.take_profit_var, width=10, style='Modern.TEntry')
+        take_profit_entry.grid(row=0, column=1, padx=5)
+        
+        ttk.Label(profit_frame, text="Trailing Stop %:", style='Modern.TLabel', width=15).grid(row=0, column=2, sticky=tk.W, padx=(20,0))
+        self.trailing_stop_var = tk.StringVar(value=str(self.bot.trailing_stop_percent))
+        trailing_stop_entry = ttk.Entry(profit_frame, textvariable=self.trailing_stop_var, width=10, style='Modern.TEntry')
+        trailing_stop_entry.grid(row=0, column=3, padx=5)
         
         # RSI Einstellungen
         rsi_frame = ttk.Frame(settings_frame, style='Modern.TFrame')
@@ -2208,12 +2336,16 @@ class ModernTradingGUI:
             trade_size = float(self.trade_size_var.get())
             rsi_oversold = float(self.rsi_oversold_var.get())
             rsi_overbought = float(self.rsi_overbought_var.get())
+            take_profit = float(self.take_profit_var.get())
+            trailing_stop = float(self.trailing_stop_var.get())
             
             self.bot.set_trading_settings(
                 stop_loss=stop_loss,
                 trade_size=trade_size,
                 rsi_oversold=rsi_oversold,
-                rsi_overbought=rsi_overbought
+                rsi_overbought=rsi_overbought,
+                take_profit=take_profit,
+                trailing_stop=trailing_stop
             )
             
             if hasattr(self, 'interval_var'):
@@ -2407,6 +2539,7 @@ class ModernTradingGUI:
                 time_since = datetime.now() - trade['timestamp']
                 hours = int(time_since.total_seconds() / 3600)
                 minutes = int((time_since.total_seconds() % 3600) / 60)
+                highest_price = trade.get('highest_price', trade['buy_price'])
                 
                 tags = ('profit',) if pl_percent >= 0 else ('loss',)
                 
@@ -2417,7 +2550,8 @@ class ModernTradingGUI:
                     f"{trade['amount']:.4f}",
                     f"{pl_percent:+.2f}%",
                     f"${pl_amount:+.2f}",
-                    f"{hours:02d}:{minutes:02d}"
+                    f"{hours:02d}:{minutes:02d}",
+                    f"${highest_price:.6f}"
                 ), tags=tags)
                 
         self.trades_tree.tag_configure('profit', background='#d4edda', foreground='#000000')
