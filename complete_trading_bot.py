@@ -760,6 +760,7 @@ class KuCoinTradingBot:
         self.last_update = None
         self.next_scheduled_update = None
         self.last_trade_time = None
+        self.last_balance_check = None  # NEU: Letzte Kontostandsprüfung
         
         # Performance Tracking
         self.gui_reference = None
@@ -1036,6 +1037,10 @@ class KuCoinTradingBot:
     
     def get_balance_summary(self):
         """Gibt echte Kontostand-Übersicht zurück"""
+        # Prüfe ob letzte Abfrage weniger als 2 Minuten her ist
+        if self.last_balance_check and (datetime.now() - self.last_balance_check).total_seconds() < 120:
+            return self.balance_cache
+            
         try:
             balances = self.api.get_account_balances_detailed()
             
@@ -1078,11 +1083,17 @@ class KuCoinTradingBot:
             for asset in assets:
                 asset['percentage'] = (asset['value_usd'] / total_value) * 100 if total_value > 0 else 0
             
-            return {
+            balance_summary = {
                 'total_portfolio_value': total_value,
                 'assets': sorted(assets, key=lambda x: x['value_usd'], reverse=True),
                 'last_updated': datetime.now()
             }
+            
+            # Cache die Balance-Daten
+            self.balance_cache = balance_summary
+            self.last_balance_check = datetime.now()
+            
+            return balance_summary
             
         except Exception as e:
             print(f"❌ Fehler bei Balance Summary: {e}")
@@ -1112,6 +1123,7 @@ class KuCoinTradingBot:
         """Aktualisiert alle Caches mit echten Daten"""
         try:
             self.get_current_prices()
+            self.balance_cache = None  # Zurücksetzen um erneute Abfrage zu erzwingen
             self.balance_cache = self.get_balance_summary()
             
         except Exception as e:
@@ -1168,7 +1180,7 @@ class KuCoinTradingBot:
                 continue
                 
             buy_price = trade['buy_price']
-            profit_percent = ((current_price - buy_price) / buy_price) * 100
+            profit_percent = ((current_price - trade['buy_price']) / trade['buy_price']) * 100
             
             if profit_percent >= self.take_profit_percent:
                 self.close_trade(symbol, f"Take-Profit erreicht ({profit_percent:.1f}%)")
@@ -1240,51 +1252,70 @@ class KuCoinTradingBot:
             except Exception as e:
                 print(f"❌ Fehler bei technischer Signalprüfung für {symbol}: {e}")
     
+    def close_all_trades(self):
+        """Schließt alle aktiven Trades manuell"""
+        if not self.active_trades:
+            self.update_bot_activity("ℹ️ Keine aktiven Trades zum Schließen")
+            return False
+            
+        closed_trades = 0
+        for symbol in list(self.active_trades.keys()):
+            success = self.close_trade(symbol, "Manuell geschlossen")
+            if success:
+                closed_trades += 1
+                
+        self.update_bot_activity(f"🔴 {closed_trades} aktive Trades manuell geschlossen")
+        return closed_trades > 0
+    
     def close_trade(self, symbol, reason):
         """Schließt einen aktiven Trade mit echter API"""
-        if symbol in self.active_trades:
-            trade = self.active_trades.pop(symbol)
-            current_price = self.get_current_price(symbol)
-            if not current_price:
-                return
-                    
-            profit_loss = (current_price - trade['buy_price']) * trade['amount']
-            profit_loss_percent = ((current_price - trade['buy_price']) / trade['buy_price']) * 100
+        if symbol not in self.active_trades:
+            return False
+            
+        trade = self.active_trades.pop(symbol)
+        current_price = self.get_current_price(symbol)
+        if not current_price:
+            return False
                 
-            if self.auto_trading:
-                order_result = self.api.place_order(
-                    symbol=symbol,
-                    side='sell',
-                    order_type='market',
-                    size=trade['amount']
-                )
-                    
-                if order_result:
-                    order_id = order_result.get('orderId', 'unknown')
-                    self.update_bot_activity(f"🔴 Verkauf: {symbol} - {profit_loss_percent:+.1f}% - {reason}")
-                else:
-                    order_id = 'failed'
-                    self.update_bot_activity(f"❌ Verkauf fehlgeschlagen: {symbol}")
+        profit_loss = (current_price - trade['buy_price']) * trade['amount']
+        profit_loss_percent = ((current_price - trade['buy_price']) / trade['buy_price']) * 100
+            
+        if self.auto_trading:
+            order_result = self.api.place_order(
+                symbol=symbol,
+                side='sell',
+                order_type='market',
+                size=trade['amount']
+            )
+                
+            if order_result:
+                order_id = order_result.get('orderId', 'unknown')
+                self.update_bot_activity(f"🔴 Verkauf: {symbol} - {profit_loss_percent:+.1f}% - {reason}")
             else:
-                order_id = 'simulated'
-                self.update_bot_activity(f"🔴 Simulierter Verkauf: {symbol} - {profit_loss_percent:+.1f}% - {reason}")
-            
-            # Logge den Trade
-            trade_data = {
-                'symbol': symbol,
-                'side': 'SELL',
-                'amount': trade['amount'],
-                'price': current_price,
-                'profit_loss': profit_loss,
-                'profit_loss_percent': profit_loss_percent,
-                'reason': reason,
-                'order_id': order_id,
-                'portfolio_value': self.calculate_portfolio_value()
-            }
-            self.tax_logger.log_trade(trade_data)
-            
-            # Aktualisiere Trade-History
-            self.load_trade_history()
+                order_id = 'failed'
+                self.update_bot_activity(f"❌ Verkauf fehlgeschlagen: {symbol}")
+                return False
+        else:
+            order_id = 'simulated'
+            self.update_bot_activity(f"🔴 Simulierter Verkauf: {symbol} - {profit_loss_percent:+.1f}% - {reason}")
+        
+        # Logge den Trade
+        trade_data = {
+            'symbol': symbol,
+            'side': 'SELL',
+            'amount': trade['amount'],
+            'price': current_price,
+            'profit_loss': profit_loss,
+            'profit_loss_percent': profit_loss_percent,
+            'reason': reason,
+            'order_id': order_id,
+            'portfolio_value': self.calculate_portfolio_value()
+        }
+        self.tax_logger.log_trade(trade_data)
+        
+        # Aktualisiere Trade-History
+        self.load_trade_history()
+        return True
     
     def execute_trade(self, symbol, signal):
         """Führt einen Trade mit echter API aus mit verbesserter Validierung"""
@@ -1554,7 +1585,7 @@ class ModernTradingGUI:
                        relief='solid')
         style.configure('Modern.Treeview.Heading', 
                        background='#404040',
-                       foreground='#ffffff',  # WEIẞER Text in Headern
+                       foreground='#ffffff',  # WEIẞER Text in Headers
                        relief='raised',
                        borderwidth=1)
         
@@ -1697,7 +1728,8 @@ class ModernTradingGUI:
             ("🔍 Schnellanalyse", self.quick_signal_check, 'Modern.TButton'),
             ("📊 Vollständiger Backtest", self.start_backtest, 'Modern.TButton'),
             ("🔄 Cache Aktualisieren", self.force_cache_update, 'Modern.TButton'),
-            ("🤖 Auto Trade Starten", self.toggle_auto_trade, 'Warning.TButton')
+            ("🤖 Auto Trade Starten", self.toggle_auto_trade, 'Warning.TButton'),
+            ("🔴 Alle Trades schließen", self.close_all_trades, 'Danger.TButton')  # NEU: Knopf für alle Trades schließen
         ]
         
         for text, command, style_name in action_buttons:
@@ -1711,19 +1743,31 @@ class ModernTradingGUI:
         trades_frame = ttk.LabelFrame(bottom_frame, text="Aktive Trades", style='Modern.TLabelframe')
         trades_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=5)
         
+        # Frame für Trades Treeview und Schließen-Button
+        trades_content_frame = ttk.Frame(trades_frame, style='Modern.TFrame')
+        trades_content_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        
         columns = ('Symbol', 'Kaufpreis', 'Aktuell', 'Menge', 'P/L %', 'P/L €', 'Seit', 'Höchstkurs')
-        self.trades_tree = ttk.Treeview(trades_frame, columns=columns, show='headings', style='Modern.Treeview')
+        self.trades_tree = ttk.Treeview(trades_content_frame, columns=columns, show='headings', style='Modern.Treeview')
         
         for col in columns:
             self.trades_tree.heading(col, text=col)
             self.trades_tree.column(col, width=100)
         
-        self.trades_tree.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        self.trades_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         
         # Scrollbar für Trades Treeview
-        trades_scroll = ttk.Scrollbar(trades_frame, orient=tk.VERTICAL, command=self.trades_tree.yview, style='Modern.Vertical.TScrollbar')
+        trades_scroll = ttk.Scrollbar(trades_content_frame, orient=tk.VERTICAL, command=self.trades_tree.yview, style='Modern.Vertical.TScrollbar')
         self.trades_tree.configure(yscrollcommand=trades_scroll.set)
         trades_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        # Button Frame unterhalb der Trades
+        trades_button_frame = ttk.Frame(trades_frame, style='Modern.TFrame')
+        trades_button_frame.pack(fill=tk.X, padx=5, pady=5)
+        
+        ttk.Button(trades_button_frame, text="Ausgewählten Trade schließen", 
+                  command=self.close_selected_trade,
+                  style='Danger.TButton').pack(side=tk.LEFT, padx=5)
         
         # Top Empfehlungen
         rec_frame = ttk.LabelFrame(bottom_frame, text="Top Empfehlungen", style='Modern.TLabelframe')
@@ -2557,6 +2601,61 @@ class ModernTradingGUI:
         self.trades_tree.tag_configure('profit', background='#d4edda', foreground='#000000')
         self.trades_tree.tag_configure('loss', background='#f8d7da', foreground='#000000')
     
+    def close_all_trades(self):
+        """Schließt alle aktiven Trades"""
+        if not self.bot.active_trades:
+            messagebox.showinfo("Info", "Keine aktiven Trades zum Schließen")
+            return
+            
+        result = messagebox.askyesno(
+            "Alle Trades schließen",
+            f"Möchten Sie wirklich alle {len(self.bot.active_trades)} aktiven Trades schließen?\n\n"
+            f"Symbole: {', '.join(self.bot.active_trades.keys())}"
+        )
+        
+        if result:
+            def close_trades():
+                success = self.bot.close_all_trades()
+                self.root.after(0, self.update_active_trades)
+                self.root.after(0, self.update_balance_display)
+                if success:
+                    self.root.after(0, lambda: messagebox.showinfo("Erfolg", "Alle Trades wurden geschlossen!"))
+                else:
+                    self.root.after(0, lambda: messagebox.showerror("Fehler", "Fehler beim Schließen der Trades!"))
+            
+            threading.Thread(target=close_trades, daemon=True).start()
+    
+    def close_selected_trade(self):
+        """Schließt den ausgewählten aktiven Trade"""
+        selection = self.trades_tree.selection()
+        if not selection:
+            messagebox.showwarning("Warnung", "Bitte wählen Sie einen Trade aus!")
+            return
+            
+        item = self.trades_tree.item(selection[0])
+        values = item['values']
+        symbol = values[0]
+        
+        result = messagebox.askyesno(
+            "Trade schließen",
+            f"Möchten Sie den Trade für {symbol} wirklich schließen?\n\n"
+            f"Kaufpreis: {values[1]}\n"
+            f"Aktueller Preis: {values[2]}\n"
+            f"Gewinn/Verlust: {values[4]}"
+        )
+        
+        if result:
+            def close_trade():
+                success = self.bot.close_trade(symbol, "Manuell geschlossen")
+                self.root.after(0, self.update_active_trades)
+                self.root.after(0, self.update_balance_display)
+                if success:
+                    self.root.after(0, lambda: messagebox.showinfo("Erfolg", f"Trade für {symbol} wurde geschlossen!"))
+                else:
+                    self.root.after(0, lambda: messagebox.showerror("Fehler", f"Fehler beim Schließen des Trades für {symbol}!"))
+            
+            threading.Thread(target=close_trade, daemon=True).start()
+    
     def execute_manual_trade(self, side):
         """Führt manuellen Trade aus"""
         symbol = self.trade_symbol_entry.get().strip().upper()
@@ -2582,7 +2681,7 @@ class ModernTradingGUI:
                 success = self.bot.execute_trade(symbol, "MANUAL_BUY")
             else:
                 # Für Verkauf müssen wir prüfen ob wir die Krypto haben
-                success = self.bot.execute_trade(symbol, "MANUAL_SELL")
+                success = self.bot.close_trade(symbol, "Manueller Verkauf")
             
             # Auto-Trading Status zurücksetzen
             self.bot.auto_trading = was_auto_trading
@@ -2983,24 +3082,30 @@ class ModernTradingGUI:
     def start_auto_updates(self):
         """Startet automatische Updates"""
         def auto_update_loop():
+            update_count = 0
             while True:
                 try:
-                    # Aktualisiere alle 30 Sekunden
-                    self.root.after(0, self.update_balance_display)
+                    # Aktualisiere aktive Trades alle 30 Sekunden
                     self.root.after(0, self.update_active_trades)
                     self.root.after(0, self.update_recommendations)
+                    
+                    # Kontostand nur alle 2 Minuten aktualisieren (statt jede 30 Sekunden)
+                    if update_count % 4 == 0:  # 4 * 30 Sekunden = 2 Minuten
+                        self.root.after(0, self.update_balance_display)
                     
                     # API Stats aktualisieren
                     api_stats = self.bot.api.get_api_stats()
                     if api_stats and hasattr(self, 'api_stats_var'):
                         self.root.after(0, lambda: self.api_stats_var.set(f"API Requests: {api_stats['request_count']}"))
                     
+                    update_count += 1
+                    
                 except Exception as e:
                     print(f"Auto-update error: {e}")
                 time.sleep(30)
                 
         threading.Thread(target=auto_update_loop, daemon=True).start()
-        print("✅ Auto-Updates gestartet")
+        print("✅ Auto-Updates gestartet (Kontostand nur alle 2 Minuten)")
     
     def run(self):
         """Startet die GUI"""
