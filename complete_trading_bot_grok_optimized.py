@@ -582,21 +582,43 @@ class KuCoinAPI:
 class TechnicalAnalysis:
     """Optimierte technische Analyse mit NumPy, TA-Lib und intelligentem Caching"""
     
-    def __init__(self):
-        self.cache = TechnicalAnalysisCache(ttl_minutes=15)  # Längeres TTL für Analysen
-        self.last_prices = {}  # Cache für letzte Preisdaten pro Symbol
+    def __init__(self, ttl_minutes=10):
+        self.cache = {}
+        self.ttl = timedelta(minutes=ttl_minutes)
+        self.analysis_cache = {}
+        
+    def get_indicator(self, symbol, indicator_name, period=None):
+        """Holt spezifischen Indikator aus Cache mit TTL-Prüfung"""
+        cache_key = f"indicator_{symbol}_{indicator_name}_{period}" if period else f"indicator_{symbol}_{indicator_name}"
+        if cache_key in self.cache:
+            data, timestamp = self.cache[cache_key]
+            if datetime.now() - timestamp < self.ttl:
+                return data
+        return None
+    
+    def set_indicator(self, symbol, indicator_name, data, period=None):
+        """Speichert spezifischen Indikator im Cache"""
+        cache_key = f"indicator_{symbol}_{indicator_name}_{period}" if period else f"indicator_{symbol}_{indicator_name}"
+        self.cache[cache_key] = (data, datetime.now())
         
     def calculate_rsi(self, prices, period=14, symbol=None):
-        """Berechnet RSI mit Caching und inkrementeller Aktualisierung"""
-        if symbol:
-            # Versuche aus Cache zu laden
-            cached_rsi = self.cache.get_indicator(symbol, 'rsi', period)
-            if cached_rsi is not None:
-                return cached_rsi
-        
+        """Berechnet RSI mit Caching und Daten-Change-Erkennung"""
         if len(prices) < period + 1:
             return 50
-            
+        
+        prices_length = len(prices)
+        prices_hash = hash(tuple(prices))  # Hash der aktuellen Preisdaten
+        
+        if symbol:
+            # Versuche aus Cache zu laden mit Daten-Validierung
+            cached_data = self.cache.get_indicator(symbol, 'rsi', period)
+            if cached_data is not None:
+                cached_value, cached_length, cached_hash = cached_data
+                # Prüfe ob Daten gleich geblieben sind
+                if cached_length == prices_length and cached_hash == prices_hash:
+                    return cached_value
+        
+        # Neue Berechnung notwendig
         prices_array = np.array(prices, dtype=np.float64)
         
         if TA_LIB_AVAILABLE:
@@ -608,54 +630,37 @@ class TechnicalAnalysis:
         else:
             result = self._calculate_rsi_manual(prices, period)
         
-        # Speichere im Cache falls Symbol gegeben
+        # Speichere im Cache mit Daten-Metadaten
         if symbol:
-            self.cache.set_indicator(symbol, 'rsi', result, period)
+            cache_data = (result, prices_length, prices_hash)
+            self.cache.set_indicator(symbol, 'rsi', cache_data, period)
         
         return result
-    
-    def _calculate_rsi_manual(self, prices, period=14):
-        """Manuelle RSI-Berechnung als Fallback"""
-        if len(prices) < period + 1:
-            return 50
-            
-        deltas = np.diff(prices)
-        gains = np.where(deltas > 0, deltas, 0)
-        losses = np.where(deltas < 0, -deltas, 0)
-        
-        if len(gains) < period or len(losses) < period:
-            return 50
-            
-        avg_gains = np.convolve(gains, np.ones(period)/period, mode='valid')
-        avg_losses = np.convolve(losses, np.ones(period)/period, mode='valid')
-        
-        if len(avg_gains) == 0 or len(avg_losses) == 0:
-            return 50
-            
-        if avg_losses[-1] == 0:
-            return 100 if avg_gains[-1] > 0 else 50
-            
-        rs = avg_gains[-1] / avg_losses[-1]
-        rsi = 100 - (100 / (1 + rs))
-        
-        return min(max(rsi, 0), 100)
-    
+
     def calculate_moving_averages(self, prices, periods=[10, 20, 50], symbol=None):
-        """Berechnet mehrere gleitende Durchschnitte gleichzeitig mit Caching"""
+        """Berechnet mehrere gleitende Durchschnitte mit Daten-Change-Erkennung"""
+        if not prices:
+            result = {f"ma_{period}": 0 for period in periods}
+            return result
+        
+        prices_length = len(prices)
+        prices_hash = hash(tuple(prices))
+        cache_key = f"ma_{min(periods)}_{max(periods)}"
+        
         if symbol:
             # Versuche aus Cache zu laden
-            cache_key = f"ma_{min(periods)}_{max(periods)}"
-            cached_ma = self.cache.get_indicator(symbol, cache_key)
-            if cached_ma is not None:
-                return cached_ma
+            cached_data = self.cache.get_indicator(symbol, cache_key)
+            if cached_data is not None:
+                cached_value, cached_length, cached_hash = cached_data
+                if cached_length == prices_length and cached_hash == prices_hash:
+                    return cached_value
         
-        if len(prices) < max(periods):
-            result = {f"ma_{period}": np.mean(prices) if prices else 0 for period in periods}
-        else:
-            prices_array = np.array(prices, dtype=np.float64)
-            results = {}
-            
-            for period in periods:
+        # Neue Berechnung
+        prices_array = np.array(prices, dtype=np.float64)
+        results = {}
+        
+        for period in periods:
+            if len(prices) >= period:
                 if TA_LIB_AVAILABLE:
                     try:
                         ma = talib.SMA(prices_array, timeperiod=period)
@@ -664,23 +669,28 @@ class TechnicalAnalysis:
                         results[f"ma_{period}"] = np.mean(prices_array[-period:])
                 else:
                     results[f"ma_{period}"] = np.mean(prices_array[-period:])
-                    
-            result = results
+            else:
+                results[f"ma_{period}"] = np.mean(prices_array)
         
-        # Speichere im Cache falls Symbol gegeben
+        # Speichere im Cache mit Metadaten
         if symbol:
-            cache_key = f"ma_{min(periods)}_{max(periods)}"
-            self.cache.set_indicator(symbol, cache_key, result)
+            cache_data = (results, prices_length, prices_hash)
+            self.cache.set_indicator(symbol, cache_key, cache_data)
         
-        return result
-    
+        return results
+
     def calculate_macd(self, prices, fastperiod=12, slowperiod=26, signalperiod=9, symbol=None):
-        """Berechnet MACD Indikator mit Caching"""
+        """Berechnet MACD Indikator mit Daten-Change-Erkennung"""
+        prices_length = len(prices)
+        prices_hash = hash(tuple(prices))
+        
         if symbol:
             # Versuche aus Cache zu laden
-            cached_macd = self.cache.get_indicator(symbol, 'macd')
-            if cached_macd is not None:
-                return cached_macd
+            cached_data = self.cache.get_indicator(symbol, 'macd')
+            if cached_data is not None:
+                cached_value, cached_length, cached_hash = cached_data
+                if cached_length == prices_length and cached_hash == prices_hash:
+                    return cached_value
         
         if len(prices) < slowperiod + signalperiod:
             result = {'macd': 0, 'signal': 0, 'histogram': 0}
@@ -690,9 +700,9 @@ class TechnicalAnalysis:
             if TA_LIB_AVAILABLE:
                 try:
                     macd, signal, histogram = talib.MACD(prices_array, 
-                                                       fastperiod=fastperiod, 
-                                                       slowperiod=slowperiod, 
-                                                       signalperiod=signalperiod)
+                                                    fastperiod=fastperiod, 
+                                                    slowperiod=slowperiod, 
+                                                    signalperiod=signalperiod)
                     result = {
                         'macd': float(macd[-1]) if not np.isnan(macd[-1]) else 0,
                         'signal': float(signal[-1]) if not np.isnan(signal[-1]) else 0,
@@ -703,57 +713,29 @@ class TechnicalAnalysis:
             else:
                 result = self._calculate_macd_manual(prices, fastperiod, slowperiod, signalperiod)
         
-        # Speichere im Cache falls Symbol gegeben
+        # Speichere im Cache mit Metadaten
         if symbol:
-            self.cache.set_indicator(symbol, 'macd', result)
+            cache_data = (result, prices_length, prices_hash)
+            self.cache.set_indicator(symbol, 'macd', cache_data)
         
         return result
-    
-    def _calculate_macd_manual(self, prices, fastperiod=12, slowperiod=26, signalperiod=9):
-        """Manuelle MACD Berechnung als Fallback"""
-        if len(prices) < slowperiod + signalperiod:
-            return {'macd': 0, 'signal': 0, 'histogram': 0}
-            
-        # Vereinfachte EMA-Berechnung
-        def calculate_ema(data, period):
-            if len(data) < period:
-                return np.array([])
-            weights = np.exp(np.linspace(-1., 0., period))
-            weights /= weights.sum()
-            ema = np.convolve(data, weights, mode='valid')
-            return ema
-        
-        ema_fast = calculate_ema(prices, fastperiod)
-        ema_slow = calculate_ema(prices, slowperiod)
-        
-        if len(ema_fast) == 0 or len(ema_slow) == 0:
-            return {'macd': 0, 'signal': 0, 'histogram': 0}
-            
-        macd_line = ema_fast[-1] - ema_slow[-1]
-        
-        # Für Signal-Line verwenden wir den letzten MACD Wert
-        macd_signal = calculate_ema(np.array([macd_line]), signalperiod)
-        if len(macd_signal) > 0:
-            signal_line = macd_signal[-1]
-        else:
-            signal_line = macd_line
-        
-        return {
-            'macd': macd_line,
-            'signal': signal_line,
-            'histogram': macd_line - signal_line
-        }
-    
+
     def calculate_bollinger_bands(self, prices, period=20, std_dev=2, symbol=None):
-        """Berechnet Bollinger Bands mit Caching"""
+        """Berechnet Bollinger Bands mit Daten-Change-Erkennung"""
+        prices_length = len(prices)
+        prices_hash = hash(tuple(prices))
+        
         if symbol:
             # Versuche aus Cache zu laden
-            cached_bb = self.cache.get_indicator(symbol, 'bollinger_bands', period)
-            if cached_bb is not None:
-                return cached_bb
+            cached_data = self.cache.get_indicator(symbol, 'bollinger_bands', period)
+            if cached_data is not None:
+                cached_value, cached_length, cached_hash = cached_data
+                if cached_length == prices_length and cached_hash == prices_hash:
+                    return cached_value
         
         if len(prices) < period:
-            result = {'upper': prices[-1] if prices else 0, 'middle': prices[-1] if prices else 0, 'lower': prices[-1] if prices else 0}
+            last_price = prices[-1] if prices else 0
+            result = {'upper': last_price, 'middle': last_price, 'lower': last_price}
         else:
             prices_array = np.array(prices[-period:], dtype=np.float64)
             middle = np.mean(prices_array)
@@ -765,9 +747,10 @@ class TechnicalAnalysis:
                 'lower': middle - (std * std_dev)
             }
         
-        # Speichere im Cache falls Symbol gegeben
+        # Speichere im Cache mit Metadaten
         if symbol:
-            self.cache.set_indicator(symbol, 'bollinger_bands', result, period)
+            cache_data = (result, prices_length, prices_hash)
+            self.cache.set_indicator(symbol, 'bollinger_bands', cache_data, period)
         
         return result
     
@@ -963,14 +946,14 @@ class KuCoinTradingBot:
         self.current_recommendations = {}
         
         # Trading Einstellungen
-        self.auto_trading = False
-        self.stop_loss_percent = 2.0
-        self.take_profit_percent = 5.0  # NEU: Take-Profit
+        self.auto_trading = True
+        self.stop_loss_percent = 5.0
+        self.take_profit_percent = 15.0  # NEU: Take-Profit
         self.trailing_stop_percent = 3.0  # NEU: Trailing Stop
-        self.trade_size_percent = 10.0
+        self.trade_size_percent = 50.0
         self.max_open_trades = 5
-        self.rsi_oversold = 30
-        self.rsi_overbought = 70
+        self.rsi_oversold = 25
+        self.rsi_overbought = 75
         self.backtest_interval = '15min'
         
         # Konfigurierbare Kryptowährungen
@@ -1170,26 +1153,26 @@ class KuCoinTradingBot:
             # RSI Signale
             if rsi < self.rsi_oversold:
                 signals.append("RSI Oversold")
-                confidence += 25
+                confidence += 18
             elif rsi > self.rsi_overbought:
                 signals.append("RSI Overbought") 
-                confidence -= 25
+                confidence -= 18
                 
             # Moving Average Signale
             if ma_short > ma_long:
                 signals.append("MA Bullish")
-                confidence += 15
+                confidence += 20
             else:
                 signals.append("MA Bearish")
-                confidence -= 15
+                confidence -= 20
                 
             # MACD Signal
             if macd_data['macd'] > macd_data['signal']:
                 signals.append("MACD Bullish")
-                confidence += 10
+                confidence += 25
             else:
                 signals.append("MACD Bearish")
-                confidence -= 10
+                confidence -= 25
                 
             # Bollinger Bands Signal
             if current_price < bollinger_data['lower']:
